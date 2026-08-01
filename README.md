@@ -32,6 +32,29 @@ separately instead of inferring gameplay support from Linux detection.
 See [the architecture document](docs/architecture.md) for the trust boundaries
 and status pipeline.
 
+## Related Star Citizen Linux projects
+
+Citizen Input Manager complements the existing Star Citizen Linux community
+tooling:
+
+- [LUG Helper](https://github.com/starcitizen-lug/lug-helper) is the official
+  installer maintained by the Star Citizen Linux Users Group and community. It
+  covers broader installation, Wine-runner management, system preparation,
+  maintenance, and general troubleshooting workflows.
+- [nix-citizen](https://github.com/LovingMelody/nix-citizen) provides
+  NixOS-oriented Star Citizen packages, including LUG Helper and the
+  `wine-astral` package used in the documented SpaceMouse reference
+  environment.
+
+Citizen Input Manager focuses on a narrower input-device problem: controller
+discovery, physical-device grouping, access verification, device-scoped Udev
+rendering, privacy-aware reports, and separation of native Linux, Wine, Star
+Citizen visibility, binding, and gameplay states.
+
+These references are provided for attribution and technical context. Citizen
+Input Manager is maintained independently; no affiliation or endorsement by
+the LUG Helper or nix-citizen maintainers is implied.
+
 ## Security model
 
 Discovery is bounded to `/sys/class/hidraw`, `/sys/class/input`, the matching

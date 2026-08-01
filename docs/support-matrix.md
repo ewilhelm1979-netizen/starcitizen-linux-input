@@ -20,3 +20,8 @@ No other hardware identity is claimed by this version.
 
 The [architecture overview](architecture.md) illustrates the diagnostic
 pipeline without promoting any candidate or unverified support state.
+
+Related ecosystem context is available from
+[LUG Helper](https://github.com/starcitizen-lug/lug-helper) and
+[nix-citizen](https://github.com/LovingMelody/nix-citizen). These links do not
+change any support state above.

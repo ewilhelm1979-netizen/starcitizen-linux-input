@@ -23,3 +23,15 @@ Star Citizen path, and touches no Wine setting.
 The X-56 manifest remains a research candidate. Enabling its rule means only
 that the exact HIDRAW policy was selected for a hardware test; it does not mark
 Star Citizen input as fixed.
+
+## Reference environment and interoperability
+
+The documented SpaceMouse reference environment used
+[nix-citizen](https://github.com/LovingMelody/nix-citizen), with the
+`wine-astral` package supplied through that project. Citizen Input Manager's
+own Flake and NixOS module do not require nix-citizen.
+
+Citizen Input Manager can be used alongside
+[LUG Helper](https://github.com/starcitizen-lug/lug-helper) and nix-citizen
+without automatically modifying either project, Wine, or launcher
+configuration. The projects remain independently maintained.
