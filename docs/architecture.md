@@ -1,5 +1,12 @@
 # Architecture
 
+![Citizen Input Manager architecture overview](images/citizen-input-manager-overview.svg)
+
+The figure summarizes the path from generic controller hardware through
+bounded Linux discovery and Citizen Input Manager to separately evidenced Wine
+and Star Citizen diagnostic stages. The detailed trust and state boundaries
+remain authoritative below.
+
 Citizen Input Manager separates five concerns:
 
 1. `sc-input` owns bounded discovery, grouping, validation, rule rendering, and

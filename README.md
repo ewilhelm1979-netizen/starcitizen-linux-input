@@ -6,6 +6,13 @@ rudder pedals, SpaceMouse devices, button boxes, and related USB HID input
 hardware. Its command-line interface is `sc-input`; its graphical entry point
 is `sc-input-gui`.
 
+![Citizen Input Manager architecture from Linux controller discovery to Wine and Star Citizen diagnostic stages](docs/images/citizen-input-manager-overview.svg)
+
+Native hardware discovery is separate from Wine and game behavior. Citizen
+Input Manager reports every diagnostic stage independently and never infers a
+later status from native detection. Scoped Udev rendering addresses one access
+boundary; it does not guarantee Wine visibility, binding, or gameplay.
+
 Linux, Wine, and Star Citizen expose different input layers. A controller can
 work through native event nodes and still lack the HIDRAW access or Windows
 input path needed for an in-game binding. This project reports those layers

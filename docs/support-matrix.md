@@ -17,3 +17,6 @@ Windows.Gaming.Input entries varied by runner path. The scoped HIDRAW policy is
 a hypothesis to test, not evidence of resolution.
 
 No other hardware identity is claimed by this version.
+
+The [architecture overview](architecture.md) illustrates the diagnostic
+pipeline without promoting any candidate or unverified support state.

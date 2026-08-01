@@ -30,6 +30,7 @@ tests/test-gui-mocks.sh
 tests/test-privacy.sh
 tests/test-diagnostics.sh
 tests/test-adversarial.sh
+tests/test-documentation-images.sh
 python3 tests/property_fuzz.py
 tests/test-nix.sh
 tests/security-scan.sh
