@@ -7,6 +7,19 @@ bounded Linux discovery and Citizen Input Manager to separately evidenced Wine
 and Star Citizen diagnostic stages. The detailed trust and state boundaries
 remain authoritative below.
 
+## Ecosystem context
+
+[LUG Helper](https://github.com/starcitizen-lug/lug-helper) is the broader
+community installer and management tool for Star Citizen on Linux, while
+[nix-citizen](https://github.com/LovingMelody/nix-citizen) provides a
+NixOS-oriented package environment. Citizen Input Manager remains an
+independently maintained diagnostic layer for controller discovery, grouping,
+access verification, scoped Udev rendering, and diagnostic-state separation.
+
+The references are documentation links only. Citizen Input Manager has no
+runtime, evaluation-time, build-time, or Flake dependency on either project
+and no coupling that modifies either project automatically.
+
 Citizen Input Manager separates five concerns:
 
 1. `sc-input` owns bounded discovery, grouping, validation, rule rendering, and

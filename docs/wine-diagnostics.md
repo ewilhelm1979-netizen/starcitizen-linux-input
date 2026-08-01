@@ -16,3 +16,10 @@ uses.
 
 See the [architecture overview](architecture.md) for Wine's position between
 native access checks and later Star Citizen evidence.
+
+## Related runner management
+
+[LUG Helper](https://github.com/starcitizen-lug/lug-helper) can manage Wine
+runners and open Wine controller configuration. Citizen Input Manager only
+performs or previews the diagnostic operations documented here; it does not
+replace broader prefix or runner management.
