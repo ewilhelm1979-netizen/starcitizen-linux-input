@@ -19,8 +19,8 @@ state was changed.
 
 A HIGH public-report privacy flaw was reproduced early. All publishing was
 stopped at that point. The flaw and every MEDIUM finding listed below have now
-been fixed and locally verified, but live read-only testing and GitHub CI/review
-remain pending.
+been fixed and locally verified. Live read-only testing has also passed; CI and
+review of the live documentation remain pending.
 
 ## Methodology
 
@@ -33,17 +33,41 @@ cross-project contract test compares both repositories' SpaceMouse policy and
 support boundaries without adding a runtime dependency or copying the Star
 Citizen profile into this repository.
 
+## Live read-only hardware validation
+
+On 2026-08-01, repository commit
+`4968813470a7f16b932eedee0dde38f9744d8865` was tested read-only with one
+connected USB SpaceMouse. VID:PID `256f:c63a` was confirmed through its
+canonical USB ancestor. HIDRAW, event, and joystick node types were associated
+dynamically under one unambiguous physical device. Effective HIDRAW read and
+write access both succeeded.
+
+The automatic status pipeline reported native detection and access only; Wine,
+Star Citizen visibility, binding, and gameplay remained unconfirmed. The live
+public report passed fixed-schema privacy validation without a username,
+hostname field, node number, device or sysfs path, serial, GUID, Wine prefix,
+account data, secret, or token. The private report was written only under the
+private audit root with mode `0600`.
+
+The rendered policy remained byte-identical to Project A and the active scoped
+HIDRAW `TAG+="uaccess"` rule, with no `MODE`, `GROUP`, `OWNER`, executable,
+global HIDRAW, or input-subsystem permission directive. No device event,
+joystick event, or raw HID report was consumed. No system configuration, Udev
+rule, ACL, group, Wine state, Star Citizen file, or game state was changed.
+Gameplay was not retested during this phase, and X-56 remains
+candidate/unverified.
+
 ## Functional claim matrix
 
 | Claim | Documentation | Implementation | Evidence | Result | Remaining limitation |
 | --- | --- | --- | --- | --- | --- |
-| Discovery groups nodes by canonical USB ancestor, not leaf identity text. | architecture and security model | sysfs/discovery libraries | Ancestor-only, wrong vendor/product, missing attributes, escaping links, stale nodes, depth cap, multiple-interface fixtures | PARTIALLY_VERIFIED | Live USB discovery is pending. |
+| Discovery groups nodes by canonical USB ancestor, not leaf identity text. | architecture and security model | sysfs/discovery libraries | Ancestor-only, wrong vendor/product, missing attributes, escaping links, stale nodes, depth cap, multiple-interface fixtures plus live USB-ancestor grouping | VERIFIED | The USB SpaceMouse reference was tested; Bluetooth and Universal Receiver remain unverified. |
 | Every CLI command has fail-closed option, exit-code, plain/JSON, and privacy contracts. | README and command help | `bin/sc-input` and libraries | Exhaustive no/missing/unknown/duplicate/ordering cases plus JSON-shape assertions | VERIFIED | Interactive TTY prompting was not used; noninteractive creation is fully covered. |
 | Manifests are strict, bounded, non-executable data. | device-manifest guide and schema | manifest/common libraries | Unknown/duplicate keys, types, roles/pairs, confusables, controls, URLs, paths, 33 devices, 256 KiB, depth, UTF-8/NUL, malformed input | VERIFIED | The JSON Schema file is documentation; the shell validator remains authoritative. |
 | The Udev renderer is whitelist-only and installation is recoverable. | security and generic Linux guides | renderer/installer | Injection corpus, exact rules, `udevadm verify`, hardlink/symlink/special/root checks, all failpoints, signals, cleanup/rollback-failure recovery | VERIFIED | No real rule was installed or reloaded. |
-| Public reports cannot expose free-form manifest, device, or Game.log content. | security model and diagnostics guide | diagnostics/privacy libraries | High-severity reproducer plus username/host/path/serial/GUID/account/token/secret/environment/log/XML injection regression corpus | VERIFIED | Users must still review any support artifact before sharing. |
-| Private report output is local, no-overwrite, and mode `0600`. | README and security model | secure publication helper | End-to-end report creation, hardlink publication, overwrite rejection, and mode assertions | VERIFIED | Private reports intentionally contain local diagnostic details. |
-| SpaceMouse fixture journey works end to end. | README architecture | all CLI layers | discover → list → inspect → create → validate → render → install → verify → public/private report → remove and recovery backup | VERIFIED | Live hardware is pending. |
+| Public reports cannot expose free-form manifest, device, or Game.log content. | security model and diagnostics guide | diagnostics/privacy libraries | High-severity reproducer, hostile privacy corpus, and live fixed-schema public-report validation | VERIFIED | Users must still review any support artifact before sharing. |
+| Private report output is local, no-overwrite, and mode `0600`. | README and security model | secure publication helper | End-to-end publication defenses plus live private-report mode and structure validation | VERIFIED | Private reports intentionally contain local diagnostic details. |
+| SpaceMouse fixture and live recognition journeys work end to end. | README architecture | all CLI layers | Complete synthetic journey plus live discover, list, runtime-ID inspect, known-manifest verify, and public/private reports | VERIFIED | No event stream, Wine, game binding, or gameplay test was performed live. |
 | X-56 remains a two-component research case. | support matrix and research guide | X-56 manifest and verification | stick/throttle grouping, roles, missing/duplicate/wrong devices, identical-pair ambiguity, deterministic two-rule output | VERIFIED | No X-56 hardware or gameplay was tested; Star Citizen status remains `unverified`, HIDRAW policy `candidate`. |
 | Wine diagnostics display a safely quoted command and never run or mutate Wine. | Wine guide | diagnostics CLI | Hostile path previews and mutation-source scans | VERIFIED | DInput/WGI behavior cannot be inferred or exercised without Wine, which was not started. |
 | Game.log and XML helpers are bounded, read-only validators. | diagnostics guide | diagnostics library | Malformed/binary/link/FIFO/oversized/deep/element-count/entity/token/duplicate/mixed-device/huge-line/ghost cases | VERIFIED | Evidence indicates visibility only, never binding or gameplay success. |
@@ -270,18 +294,19 @@ the same core `nix flake check --no-write-lock-file` matrix used locally.
 ## Unverified boundaries and readiness
 
 - Live USB discovery, runtime-ID inspection, effective access verification, and
-  public/private live reports await the required user gate.
+  public/private reports passed for the tested USB reference.
 - No live event stream, Wine process, launcher, game, or controller binding was
   exercised.
 - No X-56 hardware was available; its support status was not promoted.
 - Bluetooth and Universal Receiver SpaceMouse paths remain unverified.
 - Native Zenity rendering under Xvfb, generic Linux distributions,
   `aarch64-linux` hardware, and a booted NixOS VM were not exercised.
-- GitHub CI and automated pull-request review are pending publication.
+- Pre-live follow-up CI passed. CI for this live-documentation commit and
+  automated pull-request review remain pending.
 
 Current state: `CITIZEN_INPUT_AUDIT_READY=NO`. The reasons are the pending live
-read-only check and pending GitHub CI/review, not an unresolved
-CRITICAL/HIGH/MEDIUM code finding.
+documentation CI/review, not an unresolved CRITICAL/HIGH/MEDIUM code finding or
+a failed live check.
 
 ## AI-assisted audit
 
