@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        # actions/checkout v4.3.0, verified against the upstream tag.
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
+        with:
+          persist-credentials: false
+
+      - name: Install Nix
+        # cachix/install-nix-action v31, verified against the dereferenced upstream tag.
+        uses: cachix/install-nix-action@630ae543ea3a38a9a4166f03376c02c50f408342
+
+      - name: Shell, manifest, fixture, privacy, and security tests
+        run: nix develop --command tests/run.sh
+
+      - name: Flake checks
+        run: nix flake check --no-write-lock-file

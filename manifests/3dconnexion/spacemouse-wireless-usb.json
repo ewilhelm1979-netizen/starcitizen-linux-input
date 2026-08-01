@@ -1,0 +1,32 @@
+{
+  "$schema": "../../schemas/device-manifest.schema.json",
+  "schemaVersion": 1,
+  "id": "3dconnexion-spacemouse-wireless-usb",
+  "displayName": "3Dconnexion SpaceMouse Wireless USB",
+  "description": "Tested USB reference device with six working axes in the documented Star Citizen environment.",
+  "devices": [
+    {
+      "role": "controller",
+      "vendorId": "256f",
+      "productId": "c63a",
+      "transport": "usb",
+      "expectedNodes": ["hidraw", "event", "joystick"]
+    }
+  ],
+  "accessPolicy": {
+    "hidraw": "uaccess",
+    "input": "verify-only"
+  },
+  "support": {
+    "nativeLinux": "tested",
+    "hidrawUaccess": "tested",
+    "wine": "tested",
+    "starCitizen": "tested"
+  },
+  "references": [
+    {
+      "type": "repository",
+      "url": "https://github.com/ewilhelm1979-netizen/spacemouse"
+    }
+  ]
+}

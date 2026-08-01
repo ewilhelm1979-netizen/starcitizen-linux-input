@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/ewilhelm1979-netizen/starcitizen-linux-input/schemas/device-manifest.schema.json",
+  "title": "Star Citizen Linux input device manifest",
+  "description": "A persistent, privacy-preserving description of one USB input device or a multi-device controller set.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "id",
+    "displayName",
+    "description",
+    "devices",
+    "accessPolicy",
+    "support",
+    "references"
+  ],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schemaVersion": { "const": 1 },
+    "id": { "type": "string", "pattern": "^[a-z0-9]+([.-][a-z0-9]+)*$" },
+    "displayName": { "type": "string", "minLength": 1 },
+    "description": { "type": "string" },
+    "devices": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["role", "vendorId", "productId", "transport", "expectedNodes"],
+        "properties": {
+          "role": { "type": "string", "pattern": "^[a-z0-9]+([.-][a-z0-9]+)*$" },
+          "vendorId": { "type": "string", "pattern": "^[0-9a-f]{4}$" },
+          "productId": { "type": "string", "pattern": "^[0-9a-f]{4}$" },
+          "transport": { "const": "usb" },
+          "expectedNodes": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": { "enum": ["hidraw", "event", "joystick"] }
+          }
+        }
+      }
+    },
+    "accessPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["hidraw", "input"],
+      "properties": {
+        "hidraw": { "enum": ["uaccess"] },
+        "input": { "enum": ["verify-only"] }
+      }
+    },
+    "support": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["nativeLinux", "hidrawUaccess", "wine", "starCitizen"],
+      "properties": {
+        "nativeLinux": { "$ref": "#/$defs/supportStatus" },
+        "hidrawUaccess": { "$ref": "#/$defs/supportStatus" },
+        "wine": { "$ref": "#/$defs/supportStatus" },
+        "starCitizen": { "$ref": "#/$defs/supportStatus" }
+      }
+    },
+    "references": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["type", "url"],
+        "properties": {
+          "type": { "enum": ["repository", "issue", "documentation"] },
+          "url": { "type": "string", "pattern": "^https://" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "supportStatus": {
+      "enum": ["tested", "reported", "candidate", "unverified", "unsupported"]
+    }
+  }
+}
