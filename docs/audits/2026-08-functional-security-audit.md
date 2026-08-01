@@ -263,7 +263,7 @@ The workflow has minimal permissions, no `pull_request_target`, no self-hosted
 runner, no artifact upload, no mutable download, no secret path for fork pull
 requests, and no untrusted GitHub context interpolation in shell. Checkout
 credential persistence is disabled. The pinned `actions/checkout` SHA maps to
-upstream `v4.3.0`; the pinned `cachix/install-nix-action` SHA maps to upstream
+upstream `v5.1.0`; the pinned `cachix/install-nix-action` SHA maps to upstream
 `v31`. Actionlint and offline pedantic zizmor report no finding. CI executes
 the same core `nix flake check --no-write-lock-file` matrix used locally.
 
