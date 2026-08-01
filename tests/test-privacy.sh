@@ -6,7 +6,9 @@ source "$(dirname -- "${BASH_SOURCE[0]}")/testlib.sh"
 new_fixture x56 >/dev/null
 report="$("$TEST_ROOT/bin/sc-input" report --known-manifest saitek-x56-rhino --privacy public)"
 jq -e '.privacy == "public" and .manifest.id == "saitek-x56-rhino"' <<<"$report" >/dev/null
-assert_eq 2 "$(jq '.detectedNames | length' <<<"$report")" 'public report omitted safe product names'
+assert_eq false "$(jq 'has("detectedNames")' <<<"$report")" 'public report retained free-form device names'
+assert_eq false "$(jq '.manifest | has("displayName") or has("references")' <<<"$report")" \
+  'public report retained free-form manifest text or references'
 if grep -Eq '/tmp/|/dev/|/sys/|usb-[0-9a-f]{16}|fixture-user|SERIAL-EXAMPLE|example-token-value' <<<"$report"; then
   fail 'public report contains private detail'
 fi

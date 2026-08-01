@@ -3,6 +3,7 @@
 | Device or layer | Native Linux | HIDRAW uaccess | Wine | Star Citizen | Notes |
 | --- | --- | --- | --- | --- | --- |
 | SpaceMouse Wireless USB `256f:c63a` | tested | tested | tested | tested | Six axes in the documented reference environment |
+| SpaceMouse Bluetooth or Universal Receiver | unverified | unverified | unverified | unverified | A different transport or USB identity must not inherit the USB reference claim |
 | X-56 stick `0738:2221` | reported | candidate | reported | unverified | Research case; no confirmed fix |
 | X-56 throttle `0738:a221` | reported | candidate | reported | unverified | Research case; no confirmed fix |
 

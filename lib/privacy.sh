@@ -10,9 +10,10 @@ sc_privacy_filter_json() {
   jq --sort-keys '
     walk(
       if type == "object" then
-        with_entries(select(.key | test("runtimeId|path|serial|guid|hostname|username|environment|token|aclExcerpt"; "i") | not))
+        with_entries(select(.key | test("runtimeId|path|node|serial|guid|host|user|environment|token|secret|account|prefix|log|xml|content|aclExcerpt"; "i") | not))
       elif type == "string" then
-        gsub("/home/[^/[:space:]]+"; "[REDACTED_HOME]")
+        gsub("/(home|Users)/[^/[:space:]]+"; "[REDACTED_HOME]")
+        | gsub("/(dev|sys)/[^[:space:]\"]+"; "[REDACTED_PATH]")
         | gsub("\\{[0-9A-Fa-f-]{16,}\\}"; "[REDACTED_GUID]")
       else . end
     )'

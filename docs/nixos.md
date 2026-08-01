@@ -10,7 +10,8 @@ under `hardware.starCitizenInput`:
 - `gui` defaults to `false`.
 
 The module reads local JSON during Nix evaluation, validates a safe manifest
-subset, deduplicates and sorts VID:PID pairs, and builds an early rule file
+subset, rejects duplicate manifest selections and VID:PID pairs, sorts the
+accepted pairs, and builds an early rule file
 under `/lib/udev/rules.d` through `services.udev.packages`. It performs no
 network access during evaluation and uses no import-from-derivation mechanism.
 

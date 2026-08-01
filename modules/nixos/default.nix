@@ -49,6 +49,7 @@ let
       devices = manifest.devices or [ ];
       references = manifest.references or [ ];
       roles = map (device: device.role or "") devices;
+      devicePairs = map (device: "${device.vendorId or ""}:${device.productId or ""}") devices;
     in
     exactKeys manifest [
       "$schema"
@@ -67,6 +68,7 @@ let
     && builtins.stringLength (manifest.displayName or "") > 0
     && builtins.isString (manifest.description or null)
     && devices != [ ]
+    && builtins.length devices <= 32
     && lib.all (
       device:
       exactKeys device [
@@ -94,6 +96,7 @@ let
         == builtins.length (lib.unique (device.expectedNodes or [ ]))
     ) devices
     && builtins.length roles == builtins.length (lib.unique roles)
+    && builtins.length devicePairs == builtins.length (lib.unique devicePairs)
     && exactKeys accessPolicy [
       "hidraw"
       "input"
@@ -135,10 +138,9 @@ let
     else
       left.vendorId < right.vendorId
   ) pairs;
-  rules = lib.concatMapStrings (
-    pair:
-    ''SUBSYSTEM=="hidraw", KERNEL=="hidraw*", ATTRS{idVendor}=="${pair.vendorId}", ATTRS{idProduct}=="${pair.productId}", TAG+="uaccess"\n''
-  ) sortedPairs;
+  rules = lib.concatMapStrings (pair: ''
+    SUBSYSTEM=="hidraw", KERNEL=="hidraw*", ATTRS{idVendor}=="${pair.vendorId}", ATTRS{idProduct}=="${pair.productId}", TAG+="uaccess"
+  '') sortedPairs;
   udevPackage = pkgs.writeTextFile {
     name = "star-citizen-input-udev-rules";
     destination = "/lib/udev/rules.d/60-star-citizen-input.rules";
@@ -178,6 +180,16 @@ in
 
   config = lib.mkIf cfg.enable {
     assertions = [
+      {
+        assertion = manifests != [ ];
+        message = "hardware.starCitizenInput requires at least one known or local manifest.";
+      }
+      {
+        assertion =
+          builtins.length cfg.knownManifests == builtins.length (lib.unique cfg.knownManifests)
+          && builtins.length cfg.manifestFiles == builtins.length (lib.unique cfg.manifestFiles);
+        message = "hardware.starCitizenInput manifest selections must not contain duplicates.";
+      }
       {
         assertion = lib.all manifestValid manifests;
         message = "All hardware.starCitizenInput manifests must satisfy the safe schema-version-1 subset.";

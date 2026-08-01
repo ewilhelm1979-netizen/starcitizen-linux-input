@@ -10,11 +10,13 @@ Allowed support values are `tested`, `reported`, `candidate`, `unverified`, and
 `unverified`. The only version-one access policy is HIDRAW `uaccess` with input
 nodes in `verify-only` mode.
 
-Persistent manifests must not contain runtime IDs, device node numbers, sysfs
+Manifest files are limited to 256 KiB, must be NUL-free UTF-8 JSON, may nest at
+most 32 levels, and must contain every documented key exactly once. Duplicate
+JSON keys, duplicate roles, duplicate VID:PID pairs, and unknown keys are
+rejected. Persistent manifests must not contain runtime IDs, device node numbers, sysfs
 paths, USB port paths, serial numbers, usernames, hostnames, home paths, shell
 fragments, or executable fields. Validation rejects unknown fields, unsafe
-slugs, duplicate roles, malformed hexadecimal IDs, absolute paths, and unknown
-policies.
+slugs, malformed hexadecimal IDs, absolute paths, and unknown policies.
 
 `manifest create` uses `jq` for safe JSON construction. Preview the generated
 document before saving it. Local storage defaults to the XDG data directory;

@@ -61,7 +61,8 @@ Udev, trigger hardware, or change a device permission.
 ```console
 sc-input discover --json
 sc-input list
-sc-input inspect --device usb-RUNTIME-ID --json
+runtime_id=$(sc-input discover --json | jq -er '.devices[0].runtimeId')
+sc-input inspect --device "$runtime_id" --json
 sc-input manifest list --json
 sc-input verify --known-manifest 3dconnexion-spacemouse-wireless-usb
 sc-input verify --known-manifest 3dconnexion-spacemouse-wireless-usb \
@@ -89,15 +90,16 @@ privileged change. See [GUI behavior and fallbacks](docs/gui.md).
 
 ## Create a manifest
 
-List runtime IDs, then create an unverified private local manifest:
+Select one discovered runtime ID, then create an unverified private local
+manifest:
 
 ```console
-sc-input discover
+runtime_id=$(sc-input discover --json | jq -er '.devices[0].runtimeId')
 sc-input manifest create \
-  --devices usb-FIRST,usb-SECOND \
-  --id my-hotas \
-  --display-name 'My HOTAS' \
-  --roles stick,throttle \
+  --devices "$runtime_id" \
+  --id my-controller \
+  --display-name 'My Controller' \
+  --roles controller \
   --preview
 ```
 
@@ -146,14 +148,17 @@ enabling a manifest.
 
 Use `discover`, `verify`, and `udev render` first. The imperative installer has
 `--dry-run`, performs no automatic privilege escalation, rejects symlink
-targets, makes recoverable backups, and never reloads rules or triggers
-devices. See [the generic Linux guide](docs/generic-linux.md).
+and hard-linked targets, makes recoverable backups, rolls back interrupted or
+failed publication, and never reloads rules or triggers devices. See [the
+generic Linux guide](docs/generic-linux.md).
 
 ## Support boundaries
 
 - SpaceMouse Wireless USB `256f:c63a` is the tested reference: NixOS 26.05,
   Nix-Citizen, Astral Wine 11.12, Star Citizen LIVE 4.9.188.23497, six axes,
   flight and shared ground-vehicle movement, no drift or cross-axis input.
+  Bluetooth and Universal Receiver operation remain unverified and may use
+  different USB identities or presentation paths.
 - X-56 stick `0738:2221` and throttle `0738:a221` are a research case. Linux and
   `joy.cpl` visibility were reported, but in-game input remained unreliable and
   Ghost controllers were observed across DInput and Windows.Gaming.Input.

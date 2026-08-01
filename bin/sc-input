@@ -1,8 +1,18 @@
 #!/usr/bin/env bash
 set -euo pipefail
+umask 077
 
 SC_BIN_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
-SC_INPUT_LIB_DIR="${SC_INPUT_LIB_DIR:-$(realpath -e -- "$SC_BIN_DIR/../lib")}"
+SC_DEFAULT_LIB_DIR="$(realpath -e -- "$SC_BIN_DIR/../lib")"
+SC_INPUT_LIB_DIR="${SC_INPUT_LIB_DIR:-$SC_DEFAULT_LIB_DIR}"
+SC_INPUT_LIB_DIR="$(realpath -e -- "$SC_INPUT_LIB_DIR")" || {
+  printf 'sc-input: invalid library directory\n' >&2
+  exit 65
+}
+if [[ "$SC_INPUT_LIB_DIR" != "$SC_DEFAULT_LIB_DIR" && "$SC_INPUT_LIB_DIR" != /nix/store/* ]]; then
+  printf 'sc-input: refusing an executable library directory outside the program or Nix store\n' >&2
+  exit 65
+fi
 
 # shellcheck disable=SC1091
 source "$SC_INPUT_LIB_DIR/common.sh"
@@ -24,6 +34,7 @@ source "$SC_INPUT_LIB_DIR/diagnostics.sh"
 sc_init_roots
 sc_require_command jq
 sc_require_command realpath
+sc_require_command python3
 
 usage() {
   cat <<'EOF'
@@ -65,6 +76,7 @@ resolve_manifest_argument() {
       ;;
     file)
       sc_require_absolute_path "$value" "manifest path"
+      sc_require_canonical_regular_file "$value" "manifest" "$SC_INPUT_MAX_MANIFEST_BYTES"
       printf '%s\n' "$value"
       ;;
     *) sc_die 70 "invalid manifest resolver mode" ;;
@@ -73,6 +85,7 @@ resolve_manifest_argument() {
 
 command_discover() {
   local json=false data
+  sc_reject_duplicate_options "$@"
   while (($#)); do
     case "$1" in
       --json) json=true ;;
@@ -102,6 +115,7 @@ command_list() {
 
 command_inspect() {
   local runtime_id="" json=false data count selected access_file access node_type node
+  sc_reject_duplicate_options "$@"
   while (($#)); do
     case "$1" in
       --device)
@@ -168,6 +182,7 @@ EOF
 
 command_manifest_create() {
   local devices="" manifest_id="" display_name="" roles="" output="" preview=false json
+  sc_reject_duplicate_options "$@"
   while (($#)); do
     case "$1" in
       --devices)
@@ -241,6 +256,7 @@ command_manifest() {
     return 64
   }
   shift
+  sc_reject_duplicate_options "$@"
   case "$sub" in
     list)
       if [[ "${1:-}" == "--help" ]]; then
@@ -305,6 +321,7 @@ command_udev() {
     return 64
   }
   shift
+  sc_reject_duplicate_options "$@"
   [[ "$sub" == "--help" || "$sub" == "help" ]] && {
     udev_help
     return
@@ -359,6 +376,7 @@ verify_help() {
 
 command_verify() {
   local manifest="" known="" json=false confirmations="" path result
+  sc_reject_duplicate_options "$@"
   while (($#)); do
     case "$1" in
       --manifest)
@@ -412,16 +430,12 @@ EOF
 
 sc_write_new_private_file() {
   local output="$1"
-  local parent
-  sc_require_absolute_path "$output" "output path"
-  [[ ! -e "$output" && ! -L "$output" ]] || sc_die 73 "refusing to overwrite output: $output"
-  parent="$(dirname -- "$output")"
-  [[ -d "$parent" && ! -L "$parent" ]] || sc_die 73 "output directory must already exist and must not be a symlink"
-  install -m 0600 /dev/stdin "$output" || sc_die 73 "could not write output"
+  sc_write_new_file_from_stdin "$output" 0600 "report output"
 }
 
 command_report() {
   local manifest="" known="" privacy=public format=json output="" confirmations="" path report
+  sc_reject_duplicate_options "$@"
   while (($#)); do
     case "$1" in
       --manifest)
@@ -485,6 +499,7 @@ wine_help() {
 command_wine() {
   local sub="${1:-}" prefix="" runner=""
   shift || true
+  sc_reject_duplicate_options "$@"
   [[ "$sub" == command ]] || {
     wine_help
     [[ "$sub" == --help || "$sub" == help ]] && return
@@ -530,6 +545,7 @@ EOF
 command_star_citizen() {
   local sub="${1:-}" game_log="" profile="" privacy=public
   shift || true
+  sc_reject_duplicate_options "$@"
   [[ "$sub" == --help || "$sub" == help ]] && {
     star_citizen_help
     return
@@ -566,7 +582,6 @@ command_star_citizen() {
       ;;
     validate-profile)
       [[ -n "$profile" && -z "$game_log" ]] || sc_die 64 "validate-profile requires --profile"
-      sc_require_command xmllint
       sc_profile_validate_xml "$profile" | sc_json_pretty
       ;;
     *)
@@ -608,7 +623,10 @@ main() {
     wine) command_wine "$@" ;;
     star-citizen) command_star_citizen "$@" ;;
     gui) command_gui "$@" ;;
-    --version) printf 'sc-input %s\n' "$SC_INPUT_VERSION" ;;
+    --version)
+      [[ $# -eq 0 ]] || sc_die 64 "--version accepts no arguments"
+      printf 'sc-input %s\n' "$SC_INPUT_VERSION"
+      ;;
     --help | -h | help) usage ;;
     *) sc_die 64 "unknown command: $command" ;;
   esac
