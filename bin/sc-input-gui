@@ -1,0 +1,200 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+GUI_BIN_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+SC_INPUT_CLI="${SC_INPUT_CLI:-$GUI_BIN_DIR/sc-input}"
+if [[ ! -x "$SC_INPUT_CLI" ]]; then
+  SC_INPUT_CLI="$(command -v sc-input || true)"
+fi
+[[ -n "$SC_INPUT_CLI" && -x "$SC_INPUT_CLI" ]] || {
+  printf 'Citizen Input Manager requires sc-input in PATH.\n' >&2
+  exit 69
+}
+
+gui_backend() {
+  local forced="${SC_INPUT_GUI_BACKEND:-}"
+  if [[ -n "$forced" ]]; then
+    case "$forced" in
+      zenity | dialog | whiptail | none)
+        printf '%s\n' "$forced"
+        return
+        ;;
+      *)
+        printf 'Invalid SC_INPUT_GUI_BACKEND value.\n' >&2
+        return 64
+        ;;
+    esac
+  fi
+  if command -v zenity >/dev/null 2>&1; then
+    printf 'zenity\n'
+  elif command -v dialog >/dev/null 2>&1; then
+    printf 'dialog\n'
+  elif command -v whiptail >/dev/null 2>&1; then
+    printf 'whiptail\n'
+  else printf 'none\n'; fi
+}
+
+zenity_devices() {
+  local data="$1"
+  local -a rows=()
+  while IFS=$'\t' read -r id pair name nodes; do
+    rows+=("$id" "$pair" "$name" "$nodes")
+  done < <(jq -r '.devices[] | [.runtimeId, (.vendorId + ":" + .productId),
+    (if .product == "" then "Unknown USB HID device" else .product end),
+    ("hidraw=" + (.nodes.hidraw|length|tostring) + ", event=" + (.nodes.event|length|tostring)
+      + ", js=" + (.nodes.joystick|length|tostring))] | @tsv' <<<"$data")
+  ((${#rows[@]} > 0)) || {
+    zenity --info --text='No USB HID input devices were discovered.'
+    return 1
+  }
+  zenity --list --title='Citizen Input Manager — physical devices' --multiple --separator=',' \
+    --column='Runtime ID' --column='VID:PID' --column='Product' --column='Nodes' "${rows[@]}"
+}
+
+zenity_manifest_choice() {
+  local data="$1"
+  local -a rows=()
+  while IFS=$'\t' read -r id name access game; do rows+=("$id" "$name" "$access" "$game"); done \
+    < <(jq -r '.manifests[] | [.id,.displayName,.support.hidrawUaccess,.support.starCitizen] | @tsv' <<<"$data")
+  zenity --list --title='Known manifests' --column='Manifest ID' --column='Name' \
+    --column='HIDRAW status' --column='Star Citizen status' "${rows[@]}"
+}
+
+zenity_create_manifest() {
+  local discovery selected form id name roles preview default_output output
+  discovery="$("$SC_INPUT_CLI" discover --json)"
+  selected="$(zenity_devices "$discovery")" || return
+  form="$(zenity --forms --title='Create local manifest' \
+    --text='All support statuses default to unverified.' \
+    --add-entry='Safe slug id' --add-entry='Display name' --add-entry='Roles, comma-separated')" || return
+  IFS='|' read -r id name roles <<<"$form"
+  preview="$("$SC_INPUT_CLI" manifest create --devices "$selected" --id "$id" \
+    --display-name "$name" --roles "$roles" --preview 2>&1)" || {
+    zenity --error --text="$preview"
+    return
+  }
+  zenity --text-info --title='Manifest preview' --width=800 --height=600 <<<"$preview" || return
+  zenity --question --text='Save this private local manifest? No existing file will be overwritten.' || return
+  default_output="${XDG_DATA_HOME:-${HOME}/.local/share}/starcitizen-linux-input/manifests/$id.json"
+  output="$("$SC_INPUT_CLI" manifest create --devices "$selected" --id "$id" \
+    --display-name "$name" --roles "$roles" --output "$default_output" 2>&1)" || {
+    zenity --error --text="$output"
+    return
+  }
+  zenity --info --text="Saved: $output"
+}
+
+zenity_known_manifest() {
+  local manifests choice action content output_path
+  manifests="$("$SC_INPUT_CLI" manifest list --json)"
+  choice="$(zenity_manifest_choice "$manifests")" || return
+  action="$(zenity --list --title="$choice" --column='Action' \
+    'Show manifest' 'Render Udev rule' 'Show safe dry-run command' 'Run native diagnosis' 'Export public report')" || return
+  case "$action" in
+    'Show manifest') content="$("$SC_INPUT_CLI" manifest show "$choice")" ;;
+    'Render Udev rule') content="$("$SC_INPUT_CLI" udev render --known-manifest "$choice")" ;;
+    'Show safe dry-run command')
+      content="Safety warning: review the rendered rule first. The GUI never performs installation.\n\nsc-input udev install --known-manifest $choice --dry-run"
+      ;;
+    'Run native diagnosis') content="$("$SC_INPUT_CLI" verify --known-manifest "$choice")" ;;
+    'Export public report')
+      output_path="$(zenity --file-selection --save --title='Export public JSON report' \
+        --filename="${HOME}/sc-input-report-$choice.json")" || return
+      content="$("$SC_INPUT_CLI" report --known-manifest "$choice" --privacy public \
+        --output "$output_path" 2>&1)" || {
+        zenity --error --text="$content"
+        return
+      }
+      zenity --info --text="Public report saved: $content"
+      return
+      ;;
+    *) return ;;
+  esac
+  zenity --text-info --title="$action" --width=900 --height=650 <<<"$content"
+}
+
+zenity_device_detail() {
+  local data selected content
+  data="$("$SC_INPUT_CLI" discover --json)"
+  selected="$(zenity_devices "$data")" || return
+  [[ "$selected" != *,* ]] || {
+    zenity --info --text='Select one device for details, or use Create manifest to group a HOTAS set.'
+    return
+  }
+  content="$("$SC_INPUT_CLI" inspect --device "$selected" --json)"
+  zenity --text-info --title='Device details' --width=800 --height=600 <<<"$content"
+}
+
+run_zenity() {
+  zenity --info --title='Citizen Input Manager' \
+    --text='Read-only controller discovery and safe manifest diagnostics. The GUI never changes permissions, launches Wine, or starts Star Citizen.'
+  local action
+  while action="$(zenity --list --title='Citizen Input Manager' --column='Action' \
+    'Discover physical devices' 'Inspect one device' 'Create local HOTAS manifest' \
+    'Known manifests and diagnostics' 'Security model' 'Exit')"; do
+    case "$action" in
+      'Discover physical devices') zenity_devices "$("$SC_INPUT_CLI" discover --json)" >/dev/null || true ;;
+      'Inspect one device') zenity_device_detail ;;
+      'Create local HOTAS manifest') zenity_create_manifest ;;
+      'Known manifests and diagnostics') zenity_known_manifest ;;
+      'Security model')
+        zenity --warning --text='No automatic installation is available. Render and review rules, use dry-run, and perform any later system change explicitly outside this GUI.'
+        ;;
+      'Exit' | '') break ;;
+    esac
+  done
+}
+
+run_tui() {
+  local tool="$1" action output
+  while true; do
+    if [[ "$tool" == dialog ]]; then
+      action="$(dialog --stdout --menu 'Citizen Input Manager — CLI-backed, no privileged changes' 20 78 6 \
+        discover 'List physical devices' manifests 'List known manifests' rules 'Render a known rule' report 'Create a public report' safety 'Show safety warning' quit 'Exit')" || break
+    else
+      action="$(whiptail --menu 'Citizen Input Manager — CLI-backed, no privileged changes' 20 78 6 \
+        discover 'List physical devices' manifests 'List known manifests' rules 'Render a known rule' report 'Create a public report' safety 'Show safety warning' quit 'Exit' 3>&1 1>&2 2>&3)" || break
+    fi
+    case "$action" in
+      discover) output="$("$SC_INPUT_CLI" discover)" ;;
+      manifests) output="$("$SC_INPUT_CLI" manifest list)" ;;
+      rules) output="Use the CLI: sc-input udev render --known-manifest MANIFEST-ID" ;;
+      report) output="Use the CLI: sc-input report --known-manifest MANIFEST-ID --privacy public" ;;
+      safety) output='The TUI never installs rules, changes permissions, launches Wine, or starts Star Citizen.' ;;
+      quit) break ;;
+    esac
+    if [[ "$tool" == dialog ]]; then
+      dialog --msgbox "$output" 24 100
+    else whiptail --msgbox "$output" 24 100; fi
+  done
+}
+
+usage() {
+  printf 'Usage: sc-input-gui [--backend-info|--help]\nBackends: zenity, dialog, whiptail, then CLI guidance. Exit codes: 0, 64, 69.\n'
+}
+
+case "${1:-}" in
+  --help | -h)
+    usage
+    exit 0
+    ;;
+  --backend-info)
+    gui_backend
+    exit 0
+    ;;
+  '') ;;
+  *)
+    usage >&2
+    exit 64
+    ;;
+esac
+
+backend="$(gui_backend)" || exit $?
+case "$backend" in
+  zenity) run_zenity ;;
+  dialog | whiptail) run_tui "$backend" ;;
+  none)
+    printf 'No supported GUI or TUI program was found. Use sc-input --help for the read-only CLI.\n' >&2
+    exit 69
+    ;;
+esac

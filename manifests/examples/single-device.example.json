@@ -1,0 +1,24 @@
+{
+  "$schema": "../../schemas/device-manifest.schema.json",
+  "schemaVersion": 1,
+  "id": "example-spacemouse-wireless-usb",
+  "displayName": "Example single-device controller",
+  "description": "Example using the known SpaceMouse USB identity; this is not an additional hardware support claim.",
+  "devices": [
+    {
+      "role": "controller",
+      "vendorId": "256f",
+      "productId": "c63a",
+      "transport": "usb",
+      "expectedNodes": ["hidraw", "event", "joystick"]
+    }
+  ],
+  "accessPolicy": { "hidraw": "uaccess", "input": "verify-only" },
+  "support": {
+    "nativeLinux": "unverified",
+    "hidrawUaccess": "unverified",
+    "wine": "unverified",
+    "starCitizen": "unverified"
+  },
+  "references": []
+}

@@ -1,0 +1,31 @@
+{
+  "$schema": "../../schemas/device-manifest.schema.json",
+  "schemaVersion": 1,
+  "id": "example-x56-rhino-set",
+  "displayName": "Example multi-device HOTAS set",
+  "description": "Example grouping with the known X-56 identities; it does not claim that Star Citizen input is fixed.",
+  "devices": [
+    {
+      "role": "stick",
+      "vendorId": "0738",
+      "productId": "2221",
+      "transport": "usb",
+      "expectedNodes": ["hidraw", "event", "joystick"]
+    },
+    {
+      "role": "throttle",
+      "vendorId": "0738",
+      "productId": "a221",
+      "transport": "usb",
+      "expectedNodes": ["hidraw", "event", "joystick"]
+    }
+  ],
+  "accessPolicy": { "hidraw": "uaccess", "input": "verify-only" },
+  "support": {
+    "nativeLinux": "unverified",
+    "hidrawUaccess": "unverified",
+    "wine": "unverified",
+    "starCitizen": "unverified"
+  },
+  "references": []
+}

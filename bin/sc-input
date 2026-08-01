@@ -1,0 +1,617 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SC_BIN_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+SC_INPUT_LIB_DIR="${SC_INPUT_LIB_DIR:-$(realpath -e -- "$SC_BIN_DIR/../lib")}"
+
+# shellcheck disable=SC1091
+source "$SC_INPUT_LIB_DIR/common.sh"
+# shellcheck disable=SC1091
+source "$SC_INPUT_LIB_DIR/sysfs.sh"
+# shellcheck disable=SC1091
+source "$SC_INPUT_LIB_DIR/discovery.sh"
+# shellcheck disable=SC1091
+source "$SC_INPUT_LIB_DIR/manifests.sh"
+# shellcheck disable=SC1091
+source "$SC_INPUT_LIB_DIR/permissions.sh"
+# shellcheck disable=SC1091
+source "$SC_INPUT_LIB_DIR/udev.sh"
+# shellcheck disable=SC1091
+source "$SC_INPUT_LIB_DIR/privacy.sh"
+# shellcheck disable=SC1091
+source "$SC_INPUT_LIB_DIR/diagnostics.sh"
+
+sc_init_roots
+sc_require_command jq
+sc_require_command realpath
+
+usage() {
+  cat <<'EOF'
+Usage: sc-input <command> [options]
+
+Read-only commands:
+  discover [--json]                    Discover and group physical USB input devices
+  list [--json]                        List discovered devices
+  inspect --device ID [--json]         Inspect one unambiguous runtime device
+  manifest list|show|validate|create   Manage declarative device manifests
+  udev render                          Render scoped HIDRAW uaccess rules
+  verify                               Verify native nodes and effective access
+  report                               Create a privacy-filtered support report
+  wine command                         Display, but never run, a joy.cpl command
+  star-citizen game-log                Analyze an explicit Game.log read-only
+  star-citizen validate-profile        Validate an exported XML profile read-only
+  gui                                  Start Citizen Input Manager
+
+Installer code is available as `udev install` and `udev uninstall`. It never
+uses privilege escalation, never reloads rules, and supports isolated test
+roots only when SC_INPUT_TEST_MODE=1.
+
+Global options:
+  --help       Show this help
+  --version    Show the tool version
+
+Exit codes: 0 success, 64 usage, 65 unsafe/invalid data or ambiguity,
+66 missing input, 69 missing dependency, 70 internal error, 73 write failure,
+77 permission denied.
+EOF
+}
+
+resolve_manifest_argument() {
+  local mode="$1"
+  local value="$2"
+  case "$mode" in
+    known)
+      sc_known_manifest_path "$value" || sc_die 66 "known manifest not found: $value"
+      ;;
+    file)
+      sc_require_absolute_path "$value" "manifest path"
+      printf '%s\n' "$value"
+      ;;
+    *) sc_die 70 "invalid manifest resolver mode" ;;
+  esac
+}
+
+command_discover() {
+  local json=false data
+  while (($#)); do
+    case "$1" in
+      --json) json=true ;;
+      --help)
+        printf 'Usage: sc-input discover [--json]\nExit codes: 0, 64, 65, 69, 70.\n'
+        return
+        ;;
+      *) sc_die 64 "unknown discover option: $1" ;;
+    esac
+    shift
+  done
+  data="$(sc_discover_json)" || sc_die 70 "device discovery failed closed"
+  if [[ "$json" == true ]]; then
+    printf '%s\n' "$data" | sc_json_pretty
+  else
+    sc_discover_plain "$data"
+  fi
+}
+
+command_list() {
+  if [[ "${1:-}" == "--help" ]]; then
+    printf 'Usage: sc-input list [--json]\nExit codes: 0, 64, 65, 69, 70.\n'
+    return
+  fi
+  command_discover "$@"
+}
+
+command_inspect() {
+  local runtime_id="" json=false data count selected access_file access node_type node
+  while (($#)); do
+    case "$1" in
+      --device)
+        [[ $# -ge 2 ]] || sc_die 64 "--device requires a runtime id"
+        runtime_id="$2"
+        shift 2
+        ;;
+      --json)
+        json=true
+        shift
+        ;;
+      --help)
+        printf 'Usage: sc-input inspect --device <runtime-id> [--json]\nExit codes: 0, 64, 65, 66, 69, 70.\n'
+        return
+        ;;
+      *) sc_die 64 "unknown inspect option: $1" ;;
+    esac
+  done
+  [[ "$runtime_id" =~ ^usb-[0-9a-f]{16}$ ]] || sc_die 64 "invalid runtime id"
+  data="$(sc_discover_json)" || sc_die 70 "device discovery failed"
+  count="$(jq --arg id "$runtime_id" '[.devices[] | select(.runtimeId == $id)] | length' <<<"$data")"
+  [[ "$count" -eq 1 ]] || {
+    [[ "$count" -eq 0 ]] && sc_die 66 "runtime device not found: $runtime_id"
+    sc_die 65 "runtime device selection is ambiguous"
+  }
+  selected="$(jq --arg id "$runtime_id" '.devices[] | select(.runtimeId == $id)' <<<"$data")"
+  access_file="$(mktemp)" || sc_die 70 "could not create temporary access data"
+  while IFS=$'\t' read -r node_type node; do
+    sc_node_access_json "$node" | jq -c --arg type "$node_type" '. + {nodeType: $type}' >>"$access_file" || {
+      rm -f -- "$access_file"
+      sc_die 65 "could not inspect device node safely"
+    }
+  done < <(jq -r '.nodes | to_entries[] | .key as $type | .value[] | [$type, .] | @tsv' <<<"$selected")
+  access="$(jq -s 'sort_by(.nodeType, .path)' "$access_file")"
+  rm -f -- "$access_file"
+  selected="$(jq --argjson access "$access" '. + {access: $access}' <<<"$selected")"
+  if [[ "$json" == true ]]; then
+    printf '%s\n' "$selected" | sc_json_pretty
+  else
+    jq -r '"Runtime ID: " + .runtimeId,
+      "Identity: " + .vendorId + ":" + .productId,
+      "Manufacturer: " + (if .manufacturer == "" then "unknown" else .manufacturer end),
+      "Product: " + (if .product == "" then "unknown" else .product end),
+      "Drivers: " + (.drivers | join(", ")),
+      "HIDRAW: " + (.nodes.hidraw | join(", ")),
+      "Event: " + (.nodes.event | join(", ")),
+      "Joystick: " + (.nodes.joystick | join(", ")),
+      (.access[] | "Access " + .nodeType + ": mode=" + .mode
+        + ", read=" + (.readable | tostring) + ", write=" + (.writable | tostring))' <<<"$selected"
+  fi
+}
+
+manifest_help() {
+  cat <<'EOF'
+Usage: sc-input manifest <command> [options]
+  list [--json]
+  show <known-id|absolute-path>
+  validate <known-id|absolute-path>
+  create [--devices ID,...] [--id SLUG] [--display-name NAME]
+         [--roles ROLE,...] [--output ABSOLUTE-PATH] [--preview]
+Exit codes: 0, 64, 65, 66, 69, 70, 73.
+EOF
+}
+
+command_manifest_create() {
+  local devices="" manifest_id="" display_name="" roles="" output="" preview=false json
+  while (($#)); do
+    case "$1" in
+      --devices)
+        [[ $# -ge 2 ]] || sc_die 64 "--devices requires ids"
+        devices="$2"
+        shift 2
+        ;;
+      --id)
+        [[ $# -ge 2 ]] || sc_die 64 "--id requires a slug"
+        manifest_id="$2"
+        shift 2
+        ;;
+      --display-name)
+        [[ $# -ge 2 ]] || sc_die 64 "--display-name requires text"
+        display_name="$2"
+        shift 2
+        ;;
+      --roles)
+        [[ $# -ge 2 ]] || sc_die 64 "--roles requires values"
+        roles="$2"
+        shift 2
+        ;;
+      --output)
+        [[ $# -ge 2 ]] || sc_die 64 "--output requires a path"
+        output="$2"
+        shift 2
+        ;;
+      --preview)
+        preview=true
+        shift
+        ;;
+      --help)
+        manifest_help
+        return
+        ;;
+      *) sc_die 64 "unknown manifest create option: $1" ;;
+    esac
+  done
+  if [[ -z "$devices" ]]; then
+    [[ -t 0 ]] || sc_die 64 "--devices is required for non-interactive creation"
+    command_discover
+    read -r -p 'Runtime ids (comma-separated): ' devices
+  fi
+  if [[ -z "$manifest_id" ]]; then
+    [[ -t 0 ]] || sc_die 64 "--id is required for non-interactive creation"
+    read -r -p 'Manifest id: ' manifest_id
+  fi
+  if [[ -z "$display_name" ]]; then
+    [[ -t 0 ]] || sc_die 64 "--display-name is required for non-interactive creation"
+    read -r -p 'Display name: ' display_name
+  fi
+  if [[ -z "$roles" ]]; then
+    [[ -t 0 ]] || sc_die 64 "--roles is required for non-interactive creation"
+    read -r -p 'Roles (comma-separated, one per device): ' roles
+  fi
+  json="$(sc_manifest_build_from_runtime_ids "$devices" "$manifest_id" "$display_name" "$roles")"
+  if [[ "$preview" == true ]]; then
+    printf '%s\n' "$json" | sc_json_pretty
+    return
+  fi
+  if [[ -z "$output" ]]; then
+    output="$(sc_private_data_root)/manifests/$manifest_id.json"
+  fi
+  sc_manifest_write_secure "$json" "$output"
+}
+
+command_manifest() {
+  local sub="${1:-}"
+  [[ -n "$sub" ]] || {
+    manifest_help
+    return 64
+  }
+  shift
+  case "$sub" in
+    list)
+      if [[ "${1:-}" == "--help" ]]; then
+        [[ $# -eq 1 ]] || sc_die 64 "manifest list --help accepts no additional arguments"
+        manifest_help
+        return
+      fi
+      if [[ "${1:-}" == "--json" ]]; then
+        [[ $# -eq 1 ]] || sc_die 64 "manifest list accepts no additional arguments after --json"
+        sc_manifest_list_json | sc_json_pretty
+      elif [[ $# -eq 0 ]]; then
+        sc_manifest_list_plain
+      else sc_die 64 "unknown manifest list option: ${1:-}"; fi
+      ;;
+    show)
+      [[ "${1:-}" == "--help" ]] && {
+        manifest_help
+        return
+      }
+      [[ $# -eq 1 ]] || sc_die 64 "manifest show requires one id or absolute path"
+      local show_path
+      if [[ "$1" == /* ]]; then
+        show_path="$(resolve_manifest_argument file "$1")"
+      else show_path="$(resolve_manifest_argument known "$1")"; fi
+      sc_manifest_validate "$show_path"
+      jq --sort-keys '.' "$show_path"
+      ;;
+    validate)
+      [[ "${1:-}" == "--help" ]] && {
+        manifest_help
+        return
+      }
+      [[ $# -eq 1 ]] || sc_die 64 "manifest validate requires one id or absolute path"
+      local validate_path
+      if [[ "$1" == /* ]]; then
+        validate_path="$(resolve_manifest_argument file "$1")"
+      else validate_path="$(resolve_manifest_argument known "$1")"; fi
+      sc_manifest_validate "$validate_path"
+      printf 'Manifest is valid: %s\n' "$(jq -r '.id' "$validate_path")"
+      ;;
+    create) command_manifest_create "$@" ;;
+    --help | -h | help) manifest_help ;;
+    *) sc_die 64 "unknown manifest command: $sub" ;;
+  esac
+}
+
+udev_help() {
+  cat <<'EOF'
+Usage:
+  sc-input udev render (--manifest ABSOLUTE-PATH | --known-manifest ID)
+  sc-input udev install (--manifest ABSOLUTE-PATH | --known-manifest ID) [--dry-run] [--root ABSOLUTE-PATH]
+  sc-input udev uninstall (--manifest ABSOLUTE-PATH | --known-manifest ID) [--dry-run] [--root ABSOLUTE-PATH]
+Rendering never installs a rule. Installation never reloads rules or triggers devices.
+Exit codes: 0, 64, 65, 66, 70, 73, 77.
+EOF
+}
+
+command_udev() {
+  local sub="${1:-}" dry_run=false root="/" manifest="" known="" path
+  [[ -n "$sub" ]] || {
+    udev_help
+    return 64
+  }
+  shift
+  [[ "$sub" == "--help" || "$sub" == "help" ]] && {
+    udev_help
+    return
+  }
+  while (($#)); do
+    case "$1" in
+      --manifest)
+        [[ $# -ge 2 ]] || sc_die 64 "--manifest requires a path"
+        manifest="$2"
+        shift 2
+        ;;
+      --known-manifest)
+        [[ $# -ge 2 ]] || sc_die 64 "--known-manifest requires an id"
+        known="$2"
+        shift 2
+        ;;
+      --dry-run)
+        dry_run=true
+        shift
+        ;;
+      --root)
+        [[ $# -ge 2 ]] || sc_die 64 "--root requires a path"
+        root="$2"
+        shift 2
+        ;;
+      --help)
+        udev_help
+        return
+        ;;
+      *) sc_die 64 "unknown udev option: $1" ;;
+    esac
+  done
+  if [[ -n "$manifest" && -z "$known" ]]; then
+    path="$(resolve_manifest_argument file "$manifest")"
+  elif [[ -z "$manifest" && -n "$known" ]]; then
+    path="$(resolve_manifest_argument known "$known")"
+  else sc_die 64 "specify exactly one manifest source"; fi
+  case "$sub" in
+    render)
+      [[ "$dry_run" == false && "$root" == "/" ]] || sc_die 64 "render accepts only a manifest source"
+      sc_udev_render "$path"
+      ;;
+    install) sc_udev_install "$path" "$root" "$dry_run" ;;
+    uninstall) sc_udev_uninstall "$path" "$root" "$dry_run" ;;
+    *) sc_die 64 "unknown udev command: $sub" ;;
+  esac
+}
+
+verify_help() {
+  printf 'Usage: sc-input verify (--manifest ABSOLUTE-PATH | --known-manifest ID) [--json] [--confirm STATUS,...]\nManual confirmations affect this output only and are never persisted. Exit codes: 0, 64, 65, 66, 69, 70.\n'
+}
+
+command_verify() {
+  local manifest="" known="" json=false confirmations="" path result
+  while (($#)); do
+    case "$1" in
+      --manifest)
+        [[ $# -ge 2 ]] || sc_die 64 "--manifest requires a path"
+        manifest="$2"
+        shift 2
+        ;;
+      --known-manifest)
+        [[ $# -ge 2 ]] || sc_die 64 "--known-manifest requires an id"
+        known="$2"
+        shift 2
+        ;;
+      --json)
+        json=true
+        shift
+        ;;
+      --confirm)
+        [[ $# -ge 2 ]] || sc_die 64 "--confirm requires status names"
+        confirmations="$2"
+        shift 2
+        ;;
+      --help)
+        verify_help
+        return
+        ;;
+      *) sc_die 64 "unknown verify option: $1" ;;
+    esac
+  done
+  if [[ -n "$manifest" && -z "$known" ]]; then
+    path="$(resolve_manifest_argument file "$manifest")"
+  elif [[ -z "$manifest" && -n "$known" ]]; then
+    path="$(resolve_manifest_argument known "$known")"
+  else sc_die 64 "specify exactly one manifest source"; fi
+  result="$(sc_verify_manifest_json "$path")" || sc_die 70 "verification failed"
+  result="$(sc_apply_status_confirmations "$result" "$confirmations")"
+  if [[ "$json" == true ]]; then
+    printf '%s\n' "$result" | sc_json_pretty
+  else sc_verify_plain "$result"; fi
+}
+
+report_help() {
+  cat <<'EOF'
+Usage: sc-input report (--manifest ABSOLUTE-PATH | --known-manifest ID)
+       [--privacy public|private] [--format json|markdown] [--output ABSOLUTE-PATH]
+       [--confirm STATUS,...]
+Default privacy is public. Existing output files are never overwritten.
+Manual confirmations affect this output only and are never persisted.
+Exit codes: 0, 64, 65, 66, 69, 70, 73.
+EOF
+}
+
+sc_write_new_private_file() {
+  local output="$1"
+  local parent
+  sc_require_absolute_path "$output" "output path"
+  [[ ! -e "$output" && ! -L "$output" ]] || sc_die 73 "refusing to overwrite output: $output"
+  parent="$(dirname -- "$output")"
+  [[ -d "$parent" && ! -L "$parent" ]] || sc_die 73 "output directory must already exist and must not be a symlink"
+  install -m 0600 /dev/stdin "$output" || sc_die 73 "could not write output"
+}
+
+command_report() {
+  local manifest="" known="" privacy=public format=json output="" confirmations="" path report
+  while (($#)); do
+    case "$1" in
+      --manifest)
+        [[ $# -ge 2 ]] || sc_die 64 "--manifest requires a path"
+        manifest="$2"
+        shift 2
+        ;;
+      --known-manifest)
+        [[ $# -ge 2 ]] || sc_die 64 "--known-manifest requires an id"
+        known="$2"
+        shift 2
+        ;;
+      --privacy)
+        [[ $# -ge 2 ]] || sc_die 64 "--privacy requires a value"
+        privacy="$2"
+        shift 2
+        ;;
+      --format)
+        [[ $# -ge 2 ]] || sc_die 64 "--format requires a value"
+        format="$2"
+        shift 2
+        ;;
+      --output)
+        [[ $# -ge 2 ]] || sc_die 64 "--output requires a path"
+        output="$2"
+        shift 2
+        ;;
+      --confirm)
+        [[ $# -ge 2 ]] || sc_die 64 "--confirm requires status names"
+        confirmations="$2"
+        shift 2
+        ;;
+      --help)
+        report_help
+        return
+        ;;
+      *) sc_die 64 "unknown report option: $1" ;;
+    esac
+  done
+  [[ "$privacy" == public || "$privacy" == private ]] || sc_die 64 "invalid privacy mode"
+  [[ "$format" == json || "$format" == markdown ]] || sc_die 64 "invalid report format"
+  if [[ -n "$manifest" && -z "$known" ]]; then
+    path="$(resolve_manifest_argument file "$manifest")"
+  elif [[ -z "$manifest" && -n "$known" ]]; then
+    path="$(resolve_manifest_argument known "$known")"
+  else sc_die 64 "specify exactly one manifest source"; fi
+  report="$(sc_report_json "$path" "$privacy" "$confirmations")" || sc_die 70 "report generation failed"
+  [[ "$format" == json ]] || report="$(printf '%s\n' "$report" | sc_report_markdown)"
+  if [[ -n "$output" ]]; then
+    printf '%s\n' "$report" | sc_write_new_private_file "$output"
+    printf '%s\n' "$output"
+  else
+    printf '%s\n' "$report"
+  fi
+}
+
+wine_help() {
+  printf 'Usage: sc-input wine command --prefix ABSOLUTE-PATH --runner ABSOLUTE-PATH\nThe command is displayed only and is never executed. Exit codes: 0, 64, 66.\n'
+}
+
+command_wine() {
+  local sub="${1:-}" prefix="" runner=""
+  shift || true
+  [[ "$sub" == command ]] || {
+    wine_help
+    [[ "$sub" == --help || "$sub" == help ]] && return
+    return 64
+  }
+  while (($#)); do
+    case "$1" in
+      --prefix)
+        [[ $# -ge 2 ]] || sc_die 64 "--prefix requires a path"
+        prefix="$2"
+        shift 2
+        ;;
+      --runner)
+        [[ $# -ge 2 ]] || sc_die 64 "--runner requires a path"
+        runner="$2"
+        shift 2
+        ;;
+      --help)
+        wine_help
+        return
+        ;;
+      *) sc_die 64 "unknown wine option: $1" ;;
+    esac
+  done
+  sc_require_absolute_path "$prefix" "Wine prefix"
+  sc_require_absolute_path "$runner" "Wine runner"
+  [[ -d "$prefix" && ! -L "$prefix" ]] || sc_die 66 "Wine prefix is not a regular directory"
+  [[ -f "$runner" && -x "$runner" && ! -L "$runner" ]] || sc_die 66 "Wine runner is not an executable regular file"
+  printf 'Command preview only; it was not executed:\nWINEPREFIX=%s %s control joy.cpl\n' \
+    "$(sc_shell_quote "$prefix")" "$(sc_shell_quote "$runner")"
+}
+
+star_citizen_help() {
+  cat <<'EOF'
+Usage:
+  sc-input star-citizen game-log --game-log ABSOLUTE-PATH [--privacy public|private]
+  sc-input star-citizen validate-profile --profile ABSOLUTE-PATH
+Only the explicit files are read. No game files are modified.
+Exit codes: 0, 64, 65, 66, 69, 70.
+EOF
+}
+
+command_star_citizen() {
+  local sub="${1:-}" game_log="" profile="" privacy=public
+  shift || true
+  [[ "$sub" == --help || "$sub" == help ]] && {
+    star_citizen_help
+    return
+  }
+  while (($#)); do
+    case "$1" in
+      --game-log)
+        [[ $# -ge 2 ]] || sc_die 64 "--game-log requires a path"
+        game_log="$2"
+        shift 2
+        ;;
+      --profile)
+        [[ $# -ge 2 ]] || sc_die 64 "--profile requires a path"
+        profile="$2"
+        shift 2
+        ;;
+      --privacy)
+        [[ $# -ge 2 ]] || sc_die 64 "--privacy requires a value"
+        privacy="$2"
+        shift 2
+        ;;
+      --help)
+        star_citizen_help
+        return
+        ;;
+      *) sc_die 64 "unknown star-citizen option: $1" ;;
+    esac
+  done
+  case "$sub" in
+    game-log)
+      [[ -n "$game_log" && -z "$profile" ]] || sc_die 64 "game-log requires --game-log"
+      [[ "$privacy" == public || "$privacy" == private ]] || sc_die 64 "invalid privacy mode"
+      sc_game_log_analyze "$game_log" "$privacy" | sc_json_pretty
+      ;;
+    validate-profile)
+      [[ -n "$profile" && -z "$game_log" ]] || sc_die 64 "validate-profile requires --profile"
+      sc_require_command xmllint
+      sc_profile_validate_xml "$profile" | sc_json_pretty
+      ;;
+    *)
+      star_citizen_help
+      return 64
+      ;;
+  esac
+}
+
+command_gui() {
+  [[ "${1:-}" == "--help" ]] && {
+    printf 'Usage: sc-input gui\nExit codes: 0, 64, 69.\n'
+    return
+  }
+  [[ $# -eq 0 ]] || sc_die 64 "gui accepts no options"
+  if command -v sc-input-gui >/dev/null 2>&1; then
+    exec sc-input-gui
+  elif [[ -x "$SC_BIN_DIR/sc-input-gui" ]]; then
+    exec "$SC_BIN_DIR/sc-input-gui"
+  fi
+  sc_die 69 "sc-input-gui is not installed; use the CLI"
+}
+
+main() {
+  local command="${1:-}"
+  [[ -n "$command" ]] || {
+    usage
+    return 64
+  }
+  shift
+  case "$command" in
+    discover) command_discover "$@" ;;
+    list) command_list "$@" ;;
+    inspect) command_inspect "$@" ;;
+    manifest) command_manifest "$@" ;;
+    udev) command_udev "$@" ;;
+    verify) command_verify "$@" ;;
+    report) command_report "$@" ;;
+    wine) command_wine "$@" ;;
+    star-citizen) command_star_citizen "$@" ;;
+    gui) command_gui "$@" ;;
+    --version) printf 'sc-input %s\n' "$SC_INPUT_VERSION" ;;
+    --help | -h | help) usage ;;
+    *) sc_die 64 "unknown command: $command" ;;
+  esac
+}
+
+main "$@"
