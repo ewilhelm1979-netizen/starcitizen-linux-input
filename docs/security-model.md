@@ -28,3 +28,6 @@ runtime IDs, sysfs paths, usernames, hostnames, serial numbers, GUIDs, account
 data, complete logs and profiles, registry dumps, environment contents, and
 tokens. Private mode is intended for local troubleshooting and should still be
 reviewed before sharing.
+
+The [architecture overview](architecture.md) shows where automatic checks end
+and evidence-assisted or manual diagnostic stages begin.

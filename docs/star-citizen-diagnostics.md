@@ -21,3 +21,6 @@ game-wide action map, or include complete profiles in a support report.
 device. Binding and gameplay states remain manual confirmations. The tool does
 not launch the RSI Launcher or Star Citizen and does not create, modify, or
 publish controller profiles.
+
+See the [architecture overview](architecture.md) for the independently
+reported visibility, binding, and gameplay stages.
