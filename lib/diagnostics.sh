@@ -35,7 +35,7 @@ sc_verify_manifest_json() {
   access_json="$(jq -s 'unique_by(.path) | sort_by(.nodeType, .path)' "$access_file")"
   rm -f -- "$access_file"
 
-  native_detected="$(jq 'all(.physicalDeviceCount >= 1 and (.missingNodeTypes | length == 0))' <<<"$components")"
+  native_detected="$(jq 'all(.physicalDeviceCount == 1 and (.missingNodeTypes | length == 0))' <<<"$components")"
   native_access="$(jq -n --argjson detected "$native_detected" --argjson access "$access_json" '
     $detected and ($access | length > 0)
     and ($access | all(.readable and (if .nodeType == "hidraw" then .writable else true end)))')"
@@ -121,6 +121,7 @@ sc_report_json() {
   manifest_json="$(jq -c '.' "$manifest")"
   os="$(sc_read_os_release)"
   kernel="$(uname -r)"
+  [[ "$kernel" =~ ^[A-Za-z0-9._+-]{1,128}$ ]] || kernel=unknown
   report="$(jq -cn \
     --arg toolVersion "$SC_INPUT_VERSION" \
     --arg kernel "$kernel" \
@@ -135,13 +136,10 @@ sc_report_json() {
       system: {kernel: $kernel, distribution: $distribution},
       manifest: {
         id: $manifest.id,
-        displayName: $manifest.displayName,
         devices: [$manifest.devices[] | {role, vendorId, productId, expectedNodes}],
-        support: $manifest.support,
-        references: $manifest.references
+        support: $manifest.support
       },
       detectedPhysicalDevices: ([$verify.components[].matches[].runtimeId] | unique | length),
-      detectedNames: ([$verify.components[].matches[] | {manufacturer, product}] | unique),
       nodeSummary: {
         hidraw: ([$verify.nodeAccess[] | select(.nodeType == "hidraw")] | length),
         event: ([$verify.nodeAccess[] | select(.nodeType == "event")] | length),
@@ -156,7 +154,13 @@ sc_report_json() {
       },
       statusPipeline: $verify.statusPipeline,
       warnings: $verify.warnings,
-      details: (if $privacy == "private" then $verify else null end)
+      details: (if $privacy == "private" then
+        ($verify + {
+          declaredDisplayName: $manifest.displayName,
+          declaredReferences: $manifest.references,
+          detectedNames: ([$verify.components[].matches[] | {manufacturer, product}] | unique)
+        })
+      else null end)
     }
     | if $privacy == "public" then del(.details) else . end')" || return 70
   printf '%s\n' "$report" | sc_privacy_filter_json "$privacy"
@@ -186,9 +190,12 @@ sc_game_log_analyze() {
   local game_log="$1"
   local privacy="$2"
   local lines native
-  sc_require_absolute_path "$game_log" "game log path"
-  [[ -f "$game_log" && ! -L "$game_log" && -r "$game_log" ]] || sc_die 66 "game log must be a readable regular file"
-  lines="$(grep -F 'Connected joystick' -- "$game_log" 2>/dev/null || true)"
+  sc_require_canonical_regular_file "$game_log" "game log" "$SC_INPUT_MAX_GAME_LOG_BYTES"
+  sc_validate_utf8_text_file "$game_log" "game log" "$SC_INPUT_MAX_GAME_LOG_BYTES"
+  lines="$(LC_ALL=C grep -F -m 128 'Connected joystick' -- "$game_log" 2>/dev/null || true)"
+  if awk 'length($0) > 4096 {exit 1}' <<<"$lines"; then :; else
+    sc_die 65 "connected joystick evidence contains an oversized line"
+  fi
   native="$(sc_discover_json)" || return
   jq -cn --arg privacy "$privacy" --arg lines "$lines" --argjson native "$native" '
     ($lines | split("\n") | map(select(length > 0))) as $connected
@@ -196,7 +203,7 @@ sc_game_log_analyze() {
         sub("^.*Connected joystick[0-9]+:[[:space:]]*"; "")
         | sub("[[:space:]]*\\{[0-9A-Fa-f-]{16,}\\}.*$"; ""))) as $gameNames
     | ($native.devices | map(.product | select(length > 0)) | unique | sort) as $nativeNames
-    | {
+    | ({
         status: "STAR_CITIZEN_VISIBLE",
         value: (($connected | length) > 0),
         source: "explicit-game-log",
@@ -204,36 +211,60 @@ sc_game_log_analyze() {
         connectedJoystickCount: ($connected | length),
         nativePhysicalDeviceCount: ($native.devices | length),
         deviceCountMatchesNative: (($connected | length) == ($native.devices | length)),
+      } + if $privacy == "private" then {
         connectedJoystickNames: ($gameNames | unique | sort),
         nativeProductNames: $nativeNames,
-        connectedJoystickLines: ($connected | map(
-          if $privacy == "public" then gsub("\\{[0-9A-Fa-f-]{16,}\\}"; "[REDACTED_GUID]") else . end))
-      }'
+        connectedJoystickLines: $connected
+      } else {} end)'
 }
 
 sc_profile_validate_xml() {
   local profile="$1"
-  local tokens_file well_formed=true invalid duplicate empty instances
-  sc_require_absolute_path "$profile" "controller profile path"
-  [[ -f "$profile" && ! -L "$profile" && -r "$profile" ]] || sc_die 66 "profile must be a readable regular file"
-  if grep -Eiq '<!DOCTYPE|<!ENTITY' "$profile"; then
-    sc_die 65 "external entities and document type declarations are not allowed"
-  fi
-  if ! xmllint --nonet --noout "$profile" 2>/dev/null; then
-    well_formed=false
-  fi
-  tokens_file="$(mktemp)" || sc_die 70 "could not create temporary XML token list"
-  grep -Eo 'input="[^"]*"' "$profile" | sed -e 's/^input="//' -e 's/"$//' >"$tokens_file" || true
-  invalid="$(awk '/^js[0-9]+_[[:space:]]*$/ {print}' "$tokens_file" | jq -R -s 'split("\n") | map(select(length > 0))')"
-  empty="$(awk '/^[[:space:]]*$/ {print "empty"}' "$tokens_file" | jq -R -s 'split("\n") | map(select(length > 0)) | length')"
-  duplicate="$(sort "$tokens_file" | uniq -d | sed '/^[[:space:]]*$/d' | jq -R -s 'split("\n") | map(select(length > 0))')"
-  instances="$(grep -Eo '^js[0-9]+_' "$tokens_file" | sed 's/_$//' | sort -u | jq -R -s 'split("\n") | map(select(length > 0))')"
-  rm -f -- "$tokens_file"
-  jq -cn --argjson wellFormed "$well_formed" --argjson invalidTokens "$invalid" \
-    --argjson emptyTokens "$empty" --argjson duplicateRebinds "$duplicate" \
-    --argjson joystickInstances "$instances" \
-    '{wellFormed: $wellFormed, invalidTokens: $invalidTokens, emptyTokenCount: $emptyTokens,
-      duplicateRebinds: $duplicateRebinds, joystickInstances: $joystickInstances,
-      repaired: false}'
-  [[ "$well_formed" == "true" && "$(jq 'length' <<<"$invalid")" -eq 0 && "$empty" -eq 0 ]]
+  sc_require_canonical_regular_file "$profile" "controller profile" "$SC_INPUT_MAX_XML_BYTES"
+  sc_validate_utf8_text_file "$profile" "controller profile" "$SC_INPUT_MAX_XML_BYTES"
+  python3 - "$profile" <<'PY'
+import json
+import pathlib
+import re
+import sys
+import xml.etree.ElementTree as ET
+
+path = pathlib.Path(sys.argv[1])
+raw = path.read_text(encoding="utf-8", errors="strict")
+if re.search(r"<!\s*(DOCTYPE|ENTITY)\b", raw, re.IGNORECASE):
+    raise SystemExit(65)
+try:
+    root = ET.fromstring(raw)
+except ET.ParseError:
+    print(json.dumps({"wellFormed": False, "invalidTokens": [], "emptyTokenCount": 0,
+                      "duplicateRebinds": [], "joystickInstances": [],
+                      "mixedJoystickInstances": False, "repaired": False}, sort_keys=True))
+    raise SystemExit(65)
+
+tokens = []
+element_count = 0
+stack = [(root, 1)]
+while stack:
+    element, depth = stack.pop()
+    element_count += 1
+    if element_count > 100000 or depth > 64:
+        raise SystemExit(65)
+    if "input" in element.attrib:
+        tokens.append(element.attrib["input"])
+    stack.extend((child, depth + 1) for child in list(element))
+
+invalid = sorted({token for token in tokens if re.fullmatch(r"js[0-9]+_\s*", token)})
+empty = sum(1 for token in tokens if not token.strip())
+duplicates = sorted({token for token in tokens if token.strip() and tokens.count(token) > 1})
+instances = sorted({match.group(1) for token in tokens
+                    if (match := re.match(r"^(js[0-9]+)_", token))})
+mixed = len(instances) > 1
+result = {"wellFormed": True, "invalidTokens": invalid, "emptyTokenCount": empty,
+          "duplicateRebinds": duplicates, "joystickInstances": instances,
+          "mixedJoystickInstances": mixed, "elementCount": element_count,
+          "repaired": False}
+print(json.dumps(result, sort_keys=True))
+if invalid or empty or duplicates or mixed:
+    raise SystemExit(65)
+PY
 }

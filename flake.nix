@@ -24,6 +24,7 @@
             gnused
             jq
             libxml2
+            python3
             systemd
             util-linux
           ];
@@ -132,6 +133,82 @@
               }
             ];
           };
+          disabledEvaluation = nixpkgs.lib.nixosSystem {
+            modules = [
+              self.nixosModules.default
+              {
+                nixpkgs.hostPlatform = system;
+                system.stateVersion = "26.05";
+                hardware.starCitizenInput.enable = false;
+              }
+            ];
+          };
+          guiEvaluation = nixpkgs.lib.nixosSystem {
+            modules = [
+              self.nixosModules.default
+              {
+                nixpkgs.hostPlatform = system;
+                system.stateVersion = "26.05";
+                hardware.starCitizenInput.enable = true;
+                hardware.starCitizenInput.knownManifests = [
+                  "3dconnexion-spacemouse-wireless-usb"
+                ];
+                hardware.starCitizenInput.gui = true;
+              }
+            ];
+          };
+          emptyEvaluation = nixpkgs.lib.nixosSystem {
+            modules = [
+              self.nixosModules.default
+              {
+                nixpkgs.hostPlatform = system;
+                system.stateVersion = "26.05";
+                hardware.starCitizenInput.enable = true;
+              }
+            ];
+          };
+          duplicateEvaluation = nixpkgs.lib.nixosSystem {
+            modules = [
+              self.nixosModules.default
+              {
+                nixpkgs.hostPlatform = system;
+                system.stateVersion = "26.05";
+                hardware.starCitizenInput.enable = true;
+                hardware.starCitizenInput.knownManifests = [
+                  "3dconnexion-spacemouse-wireless-usb"
+                  "3dconnexion-spacemouse-wireless-usb"
+                ];
+              }
+            ];
+          };
+          x56Evaluation = nixpkgs.lib.nixosSystem {
+            modules = [
+              self.nixosModules.default
+              {
+                nixpkgs.hostPlatform = system;
+                system.stateVersion = "26.05";
+                hardware.starCitizenInput.enable = true;
+                hardware.starCitizenInput.knownManifests = [ "saitek-x56-rhino" ];
+              }
+            ];
+          };
+          isIntegrationRulePackage =
+            package: builtins.match ".*star-citizen-input-udev-rules.*" (builtins.toString package) != null;
+          enabledUdevPackage =
+            nixpkgs.lib.findFirst isIntegrationRulePackage null
+              moduleEvaluation.config.services.udev.packages;
+          x56UdevPackage =
+            nixpkgs.lib.findFirst isIntegrationRulePackage null
+              x56Evaluation.config.services.udev.packages;
+          expectedAllRules = p.pkgs.writeText "expected-star-citizen-input-rules" ''
+            SUBSYSTEM=="hidraw", KERNEL=="hidraw*", ATTRS{idVendor}=="0738", ATTRS{idProduct}=="2221", TAG+="uaccess"
+            SUBSYSTEM=="hidraw", KERNEL=="hidraw*", ATTRS{idVendor}=="0738", ATTRS{idProduct}=="a221", TAG+="uaccess"
+            SUBSYSTEM=="hidraw", KERNEL=="hidraw*", ATTRS{idVendor}=="256f", ATTRS{idProduct}=="c63a", TAG+="uaccess"
+          '';
+          expectedX56Rules = p.pkgs.writeText "expected-x56-rules" ''
+            SUBSYSTEM=="hidraw", KERNEL=="hidraw*", ATTRS{idVendor}=="0738", ATTRS{idProduct}=="2221", TAG+="uaccess"
+            SUBSYSTEM=="hidraw", KERNEL=="hidraw*", ATTRS{idVendor}=="0738", ATTRS{idProduct}=="a221", TAG+="uaccess"
+          '';
         in
         {
           package = p.cli;
@@ -170,11 +247,64 @@
                 diagnosticsEnabled = builtins.toString (
                   moduleEvaluation.config.hardware.starCitizenInput.diagnosticTools
                 );
+                guiAbsent = builtins.toString (
+                  !(builtins.elem p.gui moduleEvaluation.config.environment.systemPackages)
+                );
+                guiPresent = builtins.toString (
+                  builtins.elem p.gui guiEvaluation.config.environment.systemPackages
+                );
+                disabledCliAbsent = builtins.toString (
+                  !(builtins.elem p.cli disabledEvaluation.config.environment.systemPackages)
+                );
+                disabledRuleAbsent = builtins.toString (
+                  !(nixpkgs.lib.any isIntegrationRulePackage disabledEvaluation.config.services.udev.packages)
+                );
+                emptyRejected = builtins.toString (
+                  nixpkgs.lib.any (assertion: !assertion.assertion) emptyEvaluation.config.assertions
+                );
+                duplicateRejected = builtins.toString (
+                  nixpkgs.lib.any (assertion: !assertion.assertion) duplicateEvaluation.config.assertions
+                );
+                noIntegrationServices = builtins.toString (
+                  nixpkgs.lib.all (name: !(nixpkgs.lib.hasInfix "starCitizenInput" name)) (
+                    builtins.attrNames moduleEvaluation.config.systemd.services
+                  )
+                );
+                noIntegrationUsers = builtins.toString (
+                  nixpkgs.lib.all (name: !(nixpkgs.lib.hasInfix "starCitizenInput" name)) (
+                    (builtins.attrNames moduleEvaluation.config.users.users)
+                    ++ (builtins.attrNames moduleEvaluation.config.users.groups)
+                  )
+                );
+                noIntegrationUserServices = builtins.toString (
+                  nixpkgs.lib.all (name: !(nixpkgs.lib.hasInfix "starCitizenInput" name)) (
+                    builtins.attrNames moduleEvaluation.config.systemd.user.services
+                  )
+                );
+                noIntegrationTmpfiles = builtins.toString (
+                  nixpkgs.lib.all (
+                    rule: !(nixpkgs.lib.hasInfix "starCitizenInput" rule)
+                  ) moduleEvaluation.config.systemd.tmpfiles.rules
+                );
               }
               ''
                 test "$udevInstalled" = 1
                 test "$cliInstalled" = 1
                 test "$diagnosticsEnabled" = 1
+                test "$guiAbsent" = 1
+                test "$guiPresent" = 1
+                test "$disabledCliAbsent" = 1
+                test "$disabledRuleAbsent" = 1
+                test "$emptyRejected" = 1
+                test "$duplicateRejected" = 1
+                test "$noIntegrationServices" = 1
+                test "$noIntegrationUsers" = 1
+                test "$noIntegrationUserServices" = 1
+                test "$noIntegrationTmpfiles" = 1
+                test -f ${enabledUdevPackage}/lib/udev/rules.d/60-star-citizen-input.rules
+                cmp ${expectedAllRules} ${enabledUdevPackage}/lib/udev/rules.d/60-star-citizen-input.rules
+                test -f ${x56UdevPackage}/lib/udev/rules.d/60-star-citizen-input.rules
+                cmp ${expectedX56Rules} ${x56UdevPackage}/lib/udev/rules.d/60-star-citizen-input.rules
                 touch "$out"
               '';
         }
@@ -190,11 +320,16 @@
             packages =
               p.runtimeTools
               ++ (with p.pkgs; [
+                actionlint
                 git
+                gitleaks
                 nixfmt
                 ripgrep
+                semgrep
                 shellcheck
                 shfmt
+                trivy
+                zizmor
               ]);
           };
         }

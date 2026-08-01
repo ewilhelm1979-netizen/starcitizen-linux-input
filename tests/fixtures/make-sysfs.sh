@@ -40,6 +40,8 @@ add_device() {
 }
 
 case "$scenario" in
+  empty)
+    ;;
   spacemouse | ancestor-only)
     add_device 1-1 256f c63a 3Dconnexion 'SpaceMouse Wireless' 0
     ;;
@@ -47,12 +49,56 @@ case "$scenario" in
     add_device 1-2 0738 2221 Saitek 'X-56 Rhino Stick' 0
     add_device 1-3 0738 a221 Saitek 'X-56 Rhino Throttle' 1
     ;;
+  x56-missing-stick)
+    add_device 1-3 0738 a221 Saitek 'X-56 Rhino Throttle' 0
+    ;;
+  x56-missing-throttle)
+    add_device 1-2 0738 2221 Saitek 'X-56 Rhino Stick' 0
+    ;;
+  x56-duplicate-stick)
+    add_device 1-2 0738 2221 Saitek 'X-56 Rhino Stick A' 0
+    add_device 1-3 0738 2221 Saitek 'X-56 Rhino Stick B' 1
+    add_device 1-4 0738 a221 Saitek 'X-56 Rhino Throttle' 2
+    ;;
+  x56-duplicate-throttle)
+    add_device 1-2 0738 2221 Saitek 'X-56 Rhino Stick' 0
+    add_device 1-3 0738 a221 Saitek 'X-56 Rhino Throttle A' 1
+    add_device 1-4 0738 a221 Saitek 'X-56 Rhino Throttle B' 2
+    ;;
   wrong-product)
     add_device 1-4 0738 ffff Saitek 'Unmatched test device' 0
+    ;;
+  wrong-vendor)
+    add_device 1-4 ffff 2221 'Unmatched vendor' 'Unmatched test device' 0
     ;;
   duplicates)
     add_device 1-5 256f c63a 3Dconnexion 'SpaceMouse Wireless A' 0
     add_device 1-6 256f c63a 3Dconnexion 'SpaceMouse Wireless B' 1
+    ;;
+  spacemouse-multiple-hidraw)
+    add_device 1-1 256f c63a 3Dconnexion 'SpaceMouse Wireless' 0
+    hid="$root/sys/devices/pci0000:00/usb1/1-1/1-1:1.0/0003:256F:C63A.0000"
+    mkdir -p "$hid/hidraw/hidraw1"
+    ln -s "$hid/hidraw/hidraw1" "$root/sys/class/hidraw/hidraw1"
+    : >"$root/dev/hidraw1"
+    ;;
+  missing-usb-attributes)
+    usb="$root/sys/devices/pci0000:00/usb1/1-7"
+    hid="$usb/1-7:1.0/0003:256F:C63A.0000"
+    mkdir -p "$hid/hidraw/hidraw0"
+    ln -s "$hid/hidraw/hidraw0" "$root/sys/class/hidraw/hidraw0"
+    : >"$root/dev/hidraw0"
+    ;;
+  ancestor-too-deep)
+    usb="$root/sys/devices/pci0000:00/usb1/1-8"
+    mkdir -p "$usb"
+    printf '%s\n' 256f >"$usb/idVendor"
+    printf '%s\n' c63a >"$usb/idProduct"
+    deep="$usb"
+    for depth in $(seq 1 33); do deep="$deep/level-$depth"; done
+    mkdir -p "$deep/hidraw/hidraw0"
+    ln -s "$deep/hidraw/hidraw0" "$root/sys/class/hidraw/hidraw0"
+    : >"$root/dev/hidraw0"
     ;;
   symlink-attack)
     outside="${root}-outside"

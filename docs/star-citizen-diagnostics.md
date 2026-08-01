@@ -1,19 +1,21 @@
 # Star Citizen diagnostics
 
-Game-log analysis requires an explicit absolute `--game-log` path. The tool
-does not scan the complete home directory or filesystem. It extracts only lines
-containing `Connected joystick`; it never copies the full log. Public output
-redacts controller GUIDs, while private output may display them only for the
-local runtime report. The result compares connected names and device counts
-with the current bounded native discovery without claiming that matching counts
+Game-log analysis requires an explicit canonical absolute `--game-log` path.
+The file is limited to 8 MiB and must be NUL-free UTF-8. The tool does not scan
+the complete home directory or filesystem. It extracts only lines containing
+`Connected joystick`; it never copies the full log. Public output contains only
+counts and comparison status, because controller names and other matching text
+are attacker-controlled. Private output may display bounded matching lines and
+names only for the local runtime report. The result compares device counts with
+the current bounded native discovery without claiming that matching counts
 prove functional input.
 
 Exported controller profiles can be checked with
-`star-citizen validate-profile --profile`. The validator rejects document type
-and entity declarations, requires well-formed XML, lists referenced joystick
-instances, and reports empty inputs, malformed `js1_`/`js2_`-style tokens, and
-duplicate rebinds. It does not repair XML, edit the game-wide action map, or
-include complete profiles in a support report.
+`star-citizen validate-profile --profile`. The canonical input is limited to 2
+MiB of NUL-free UTF-8 XML. The validator rejects document type and entity
+declarations, excessive depth or element counts, malformed tokens, duplicate
+rebinds, and mixed joystick instances. It does not repair XML, edit the
+game-wide action map, or include complete profiles in a support report.
 
 `STAR_CITIZEN_VISIBLE` means only that the selected evidence reports a connected
 device. Binding and gameplay states remain manual confirmations. The tool does

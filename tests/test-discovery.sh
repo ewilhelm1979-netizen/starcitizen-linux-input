@@ -34,6 +34,30 @@ new_fixture wrong-product >/dev/null
 data="$("$TEST_ROOT/bin/sc-input" verify --known-manifest saitek-x56-rhino --json)"
 assert_eq 0 "$(jq '[.components[] | select(.physicalDeviceCount > 0)] | length' <<<"$data")" 'wrong product matched the X-56 manifest'
 
+new_fixture wrong-vendor >/dev/null
+data="$("$TEST_ROOT/bin/sc-input" verify --known-manifest saitek-x56-rhino --json)"
+assert_eq 0 "$(jq '[.components[] | select(.physicalDeviceCount > 0)] | length' <<<"$data")" 'wrong vendor matched the X-56 manifest'
+
+for scenario in x56-missing-stick x56-missing-throttle; do
+  new_fixture "$scenario" >/dev/null
+  data="$("$TEST_ROOT/bin/sc-input" verify --known-manifest saitek-x56-rhino --json)"
+  assert_eq 1 "$(jq '[.components[] | select(.physicalDeviceCount == 0)] | length' <<<"$data")" \
+    "$scenario did not report exactly one missing component"
+  assert_eq unverified "$(jq -r '.support.starCitizen' "$TEST_ROOT/manifests/saitek/x56-rhino.json")" \
+    'X-56 Star Citizen support was promoted beyond unverified'
+  assert_eq candidate "$(jq -r '.support.hidrawUaccess' "$TEST_ROOT/manifests/saitek/x56-rhino.json")" \
+    'X-56 HIDRAW research policy was promoted beyond candidate'
+done
+
+for scenario in x56-duplicate-stick x56-duplicate-throttle; do
+  new_fixture "$scenario" >/dev/null
+  data="$("$TEST_ROOT/bin/sc-input" verify --known-manifest saitek-x56-rhino --json)"
+  assert_eq 1 "$(jq '[.components[] | select(.physicalDeviceCount > 1)] | length' <<<"$data")" \
+    "$scenario did not report exactly one ambiguous component"
+  assert_eq false "$(jq -r '.statusPipeline[] | select(.status == "NATIVE_DETECTED") | .value' <<<"$data")" \
+    "$scenario did not fail closed"
+done
+
 new_fixture duplicates >/dev/null
 data="$("$TEST_ROOT/bin/sc-input" discover --json)"
 assert_eq 1 "$(jq '.warnings | length' <<<"$data")" 'duplicate physical devices must produce a warning'
@@ -43,5 +67,16 @@ assert_fails "$TEST_ROOT/bin/sc-input" manifest create --devices "$one_id" --id 
 
 new_fixture symlink-attack >/dev/null
 assert_fails "$TEST_ROOT/bin/sc-input" discover --json
+
+new_fixture spacemouse-multiple-hidraw >/dev/null
+data="$("$TEST_ROOT/bin/sc-input" discover --json)"
+assert_eq 1 "$(jq '.devices | length' <<<"$data")" 'multiple interfaces split one physical USB device'
+assert_eq 2 "$(jq '.devices[0].nodes.hidraw | length' <<<"$data")" 'multiple HIDRAW nodes were not associated dynamically'
+
+for scenario in missing-usb-attributes ancestor-too-deep; do
+  new_fixture "$scenario" >/dev/null
+  data="$("$TEST_ROOT/bin/sc-input" discover --json)"
+  assert_eq 0 "$(jq '.devices | length' <<<"$data")" "$scenario should not produce a USB device"
+done
 
 printf 'PASS: discovery and USB ancestor grouping\n'

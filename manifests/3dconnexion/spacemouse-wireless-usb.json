@@ -1,5 +1,5 @@
 {
-  "$schema": "../../schemas/device-manifest.schema.json",
+  "$schema": "device-manifest.schema.json",
   "schemaVersion": 1,
   "id": "3dconnexion-spacemouse-wireless-usb",
   "displayName": "3Dconnexion SpaceMouse Wireless USB",

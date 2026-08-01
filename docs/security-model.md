@@ -5,10 +5,11 @@ untrusted manifest content, accidental changes to active devices, and privacy
 leaks in support reports.
 
 Mitigations include exact USB VID:PID matching, HIDRAW-only rendering, logind
-`uaccess`, canonical path containment, a 32-parent traversal limit, JSON
-allowlists, safe slug and hexadecimal validation, no execution of data, atomic
-same-directory installation, backups, no automatic reload or trigger, and
-public-by-default reports.
+`uaccess`, canonical path containment, a 32-parent traversal limit, bounded
+strict JSON parsing with duplicate-key rejection, safe slug and hexadecimal
+validation, no execution of data, transactional same-directory installation,
+backups, signal cleanup, no automatic reload or trigger, and public-by-default
+reports.
 
 World-writable device modes, global HIDRAW rules, standard-path input rules,
 persistent ACL manipulation, blanket input-group membership, and automatic
@@ -20,7 +21,9 @@ both roots are explicit. Production use rejects alternate root environment
 variables. Tests create regular temporary files in place of device nodes and
 never open an event stream.
 
-Private and public reports are separate. Public reports omit device paths,
+Private and public reports are separate. Public reports use a fixed output
+schema and expose only identifiers, enumerated support states, booleans, and
+counts—not free-form manifest, device, or log text. They omit device paths,
 runtime IDs, sysfs paths, usernames, hostnames, serial numbers, GUIDs, account
 data, complete logs and profiles, registry dumps, environment contents, and
 tokens. Private mode is intended for local troubleshooting and should still be

@@ -1,5 +1,5 @@
 {
-  "$schema": "../../schemas/device-manifest.schema.json",
+  "$schema": "device-manifest.schema.json",
   "schemaVersion": 1,
   "id": "example-spacemouse-wireless-usb",
   "displayName": "Example single-device controller",

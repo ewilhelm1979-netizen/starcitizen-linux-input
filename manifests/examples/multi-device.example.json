@@ -1,5 +1,5 @@
 {
-  "$schema": "../../schemas/device-manifest.schema.json",
+  "$schema": "device-manifest.schema.json",
   "schemaVersion": 1,
   "id": "example-x56-rhino-set",
   "displayName": "Example multi-device HOTAS set",

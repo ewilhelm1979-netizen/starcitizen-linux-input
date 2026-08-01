@@ -20,12 +20,17 @@ grep -F 'OpenAI Codex' README.md >/dev/null
 grep -F 'The human maintainer remains responsible for architecture, implementation' README.md >/dev/null
 
 tests/test-discovery.sh
+tests/test-e2e.sh
 tests/test-cli.sh
+tests/test-cli-contracts.sh
 tests/test-manifests.sh
 tests/test-udev.sh
 tests/test-gui-backend.sh
+tests/test-gui-mocks.sh
 tests/test-privacy.sh
 tests/test-diagnostics.sh
+tests/test-adversarial.sh
+python3 tests/property_fuzz.py
 tests/test-nix.sh
 tests/security-scan.sh
 

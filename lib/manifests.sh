@@ -2,9 +2,11 @@
 
 sc_manifest_validate() {
   local manifest="$1"
-  [[ -f "$manifest" && ! -L "$manifest" ]] || {
-    sc_error "manifest must be a regular, non-symlink file: $manifest"
-    return 66
+  sc_require_canonical_regular_file "$manifest" "manifest" "$SC_INPUT_MAX_MANIFEST_BYTES"
+  sc_validate_utf8_text_file "$manifest" "manifest" "$SC_INPUT_MAX_MANIFEST_BYTES"
+  sc_validate_json_structure "$manifest" || {
+    sc_error "manifest contains duplicate keys, invalid UTF-8, or excessive nesting: $manifest"
+    return 65
   }
   jq empty "$manifest" >/dev/null 2>&1 || {
     sc_error "manifest is not valid JSON: $manifest"
@@ -12,7 +14,10 @@ sc_manifest_validate() {
   }
 
   jq -e '
-    def exact_keys($allowed): ((keys - $allowed) | length) == 0;
+    def exact_keys($allowed): (keys | sort) == ($allowed | sort);
+    def safe_text($limit):
+      type == "string" and length <= $limit
+      and (explode | all(. >= 32 and . != 127));
     def status: . == "tested" or . == "reported" or . == "candidate"
       or . == "unverified" or . == "unsupported";
     type == "object"
@@ -20,9 +25,9 @@ sc_manifest_validate() {
       "devices", "accessPolicy", "support", "references"])
     and .schemaVersion == 1
     and (.id | type == "string" and test("^[a-z0-9]+([.-][a-z0-9]+)*$"))
-    and (.displayName | type == "string" and length > 0)
-    and (.description | type == "string")
-    and (.devices | type == "array" and length > 0)
+    and (.displayName | safe_text(160) and length > 0)
+    and (.description | safe_text(2048))
+    and (.devices | type == "array" and length > 0 and length <= 32)
     and (.devices | all(
       type == "object"
       and exact_keys(["role", "vendorId", "productId", "transport", "expectedNodes"])
@@ -35,20 +40,24 @@ sc_manifest_validate() {
         and all(. == "hidraw" or . == "event" or . == "joystick"))
     ))
     and ((.devices | map(.role) | length) == (.devices | map(.role) | unique | length))
+    and ((.devices | map(.vendorId + ":" + .productId) | length)
+      == (.devices | map(.vendorId + ":" + .productId) | unique | length))
     and (.accessPolicy | type == "object" and exact_keys(["hidraw", "input"])
       and .hidraw == "uaccess" and .input == "verify-only")
     and (.support | type == "object"
       and exact_keys(["nativeLinux", "hidrawUaccess", "wine", "starCitizen"])
       and (.nativeLinux | status) and (.hidrawUaccess | status)
       and (.wine | status) and (.starCitizen | status))
-    and (.references | type == "array" and all(
+    and (.references | type == "array" and length <= 32 and all(
       type == "object" and exact_keys(["type", "url"])
       and (.type == "repository" or .type == "issue" or .type == "documentation")
-      and (.url | type == "string" and startswith("https://"))))
+      and (.url | safe_text(2048) and test("^https://[A-Za-z0-9.-]+(?::[0-9]{1,5})?(?:/[^[:cntrl:]]*)?$"))))
     and ([paths(scalars) as $p | getpath($p)
       | select(type == "string" and test("^/"))] | length == 0)
     and ([.. | objects | keys[]
       | select(test("^(serial(number)?|command|script|executable|runCommand)$"; "i"))] | length == 0)
+    and ([paths(scalars) as $p | getpath($p)
+      | select(type == "string" and test("(^|/)\\.\\.(/|$)"))] | length == 0)
   ' "$manifest" >/dev/null || {
     sc_error "manifest failed schema-version-1 semantic validation: $manifest"
     return 65
@@ -98,11 +107,16 @@ sc_manifest_build_from_runtime_ids() {
   local -a ids roles
 
   sc_require_safe_slug "$manifest_id"
-  [[ -n "$display_name" ]] || sc_die 64 "display name must not be empty"
+  jq -en --arg value "$display_name" '
+    $value | length > 0 and length <= 160 and (explode | all(. >= 32 and . != 127))
+  ' >/dev/null || sc_die 64 "display name must be 1-160 control-free characters"
   IFS=',' read -r -a ids <<<"$ids_csv"
   IFS=',' read -r -a roles <<<"$roles_csv"
   [[ "${#ids[@]}" -gt 0 && "${#ids[@]}" -eq "${#roles[@]}" ]] ||
     sc_die 64 "provide one safe role for each selected runtime id"
+  [[ "${#ids[@]}" -le 32 ]] || sc_die 64 "a manifest may contain at most 32 devices"
+  [[ "$(printf '%s\n' "${roles[@]}" | sort -u | wc -l)" -eq "${#roles[@]}" ]] ||
+    sc_die 65 "device roles must be unique"
 
   discovery="$(sc_discover_json)" || sc_die 70 "device discovery failed"
   selected_file="$(mktemp)" || sc_die 70 "could not create temporary manifest data"
@@ -143,6 +157,11 @@ sc_manifest_build_from_runtime_ids() {
       (.[0] as $d | [$chosen[] | select(.vendorId == $d.vendorId and .productId == $d.productId)]
         | length | tostring)' <<<"$discovery")
 
+  [[ "$(jq -s 'map(.vendorId + ":" + .productId) | length == (unique | length)' "$selected_file")" == true ]] || {
+    rm -f -- "$selected_file"
+    sc_die 65 "a manifest must not repeat a VID:PID pair"
+  }
+
   jq -s \
     --arg id "$manifest_id" \
     --arg displayName "$display_name" \
@@ -168,14 +187,14 @@ sc_manifest_write_secure() {
   local output="$2"
   local parent
   sc_require_absolute_path "$output" "manifest output"
-  [[ ! -e "$output" && ! -L "$output" ]] || sc_die 73 "refusing to overwrite existing manifest: $output"
   parent="$(dirname -- "$output")"
   if [[ -e "$parent" ]]; then
     [[ -d "$parent" && ! -L "$parent" ]] || sc_die 73 "manifest directory must be a non-symlink directory"
   else
     install -d -m 0700 -- "$parent" || sc_die 73 "could not create private manifest directory"
   fi
-  printf '%s\n' "$json" | install -m 0600 /dev/stdin "$output" || sc_die 73 "could not write manifest"
+  [[ "$(realpath -e -- "$parent")" == "$parent" ]] || sc_die 65 "manifest directory must be canonical"
+  printf '%s\n' "$json" | sc_write_new_file_from_stdin "$output" 0600 "manifest"
   sc_manifest_validate "$output" || {
     rm -f -- "$output"
     sc_die 70 "created manifest did not validate"
