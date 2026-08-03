@@ -13,6 +13,7 @@
 | Home Manager installed the GUI but access did not change | Home Manager does not install system Udev rules | Configure the NixOS system module and rebuild |
 | Access is unchanged after a successful rebuild | Existing device nodes predate the new rule | Disconnect and reconnect the affected controller components |
 | Linux access succeeds but Wine or the game does not | A later diagnostic layer failed | Check Wine visibility, Star Citizen visibility, bindings, and gameplay separately |
+| X-56 is detected and works, but controls are mapped poorly | The standard CIG X-56 profile is only a starting point | Review axes, throttle direction, curves, dead zones, and button bindings in Star Citizen |
 
 ## A required command is missing
 
@@ -120,6 +121,16 @@ hardware.starCitizenInput = {
 };
 ```
 
+For the tested bundled manifest instead, use:
+
+```nix
+hardware.starCitizenInput = {
+  enable = true;
+  knownManifests = [ "saitek-x56-rhino" ];
+  manifestFiles = [ ];
+};
+```
+
 ## Local CLI says the manifest path is invalid
 
 Local manifest commands require an absolute canonical path:
@@ -177,6 +188,28 @@ Check each layer independently:
 
 A scoped Udev rule does not repair Wine presentation, Ghost controllers, XML
 tokens, or game bindings.
+
+The bundled X-56 manifest is tested in the documented maintainer environment,
+but that does not guarantee every runner, Star Citizen build, USB topology, or
+existing profile. Compare your setup with the
+[X-56 functional validation](research/x56-functional-validation.md) and record
+which stage first differs.
+
+## X-56 works but the standard profile is not optimal
+
+The 2026-08-03 validation confirmed usable stick and throttle input after the
+standard CIG X-56 profile was loaded. The default mapping was not optimal.
+Review at least:
+
+- pitch, yaw, roll, and strafe axes;
+- throttle direction and inversion;
+- dead zones and curves;
+- duplicated or missing button assignments;
+- the joystick instance selected by each binding.
+
+Native `/dev/input/js*` numbers and Star Citizen joystick numbers may differ
+and may change between sessions. Do not persist those runtime numbers in a
+manifest.
 
 ## Event or joystick access is missing
 
