@@ -271,8 +271,7 @@ tooling:
   NixOS-oriented Star Citizen packages, including LUG Helper and
   `wine-astral`.
 
-Citizen Input Manager is maintained independently; no affiliation or
-endorsement by the LUG Helper or nix-citizen maintainers is implied.
+Citizen Input Manager is maintained independently; no affiliation or endorsement is implied.
 
 ## Support boundaries
 
