@@ -50,9 +50,38 @@ added when requested, and the GUI package is added only when `gui = true`. The
 module changes no group membership, starts no daemon or user unit, assumes no
 Star Citizen path, and touches no Wine setting.
 
-The X-56 manifest remains a research candidate. Enabling its rule means only
-that the exact HIDRAW policy was selected for a hardware test; it does not mark
-Star Citizen input as fixed.
+The bundled X-56 manifest is tested in the documented maintainer environment
+for native Linux, Wine presentation, Star Citizen visibility, and usable
+in-game stick and throttle input. The standard CIG X-56 profile still requires
+user-specific binding adjustments. HIDRAW `uaccess` remains `candidate`
+because the successful game test did not independently prove that mechanism
+was causally required.
+
+## Tested bundled X-56 manifest
+
+The shortest supported X-56 configuration uses the bundled grouped manifest:
+
+```nix
+hardware.starCitizenInput = {
+  enable = true;
+  knownManifests = [ "saitek-x56-rhino" ];
+  manifestFiles = [ ];
+  diagnosticTools = true;
+  gui = true;
+};
+```
+
+The bundled manifest covers:
+
+- stick `0738:2221`;
+- throttle `0738:a221`.
+
+Use the local-manifest path documented below only when you intentionally need a
+reviewed custom copy. Do not enable the bundled and local manifests together
+for the same VID:PID pairs.
+
+Read the [X-56 functional validation](research/x56-functional-validation.md)
+for the environment, evidence, support-state decision, and limitations.
 
 ## Three files, three different jobs
 
@@ -129,9 +158,9 @@ Do not create another `modules = [ ... ];` list in
 
 An advanced alternative is to import the module through the host
 `configuration.nix` `imports` list when that file already receives `inputs`
-through `specialArgs`. Choose one import location. Importing the same module in both places is
-unnecessary. The examples in this guide use the clearer `flake.nix` module
-list.
+through `specialArgs`. Choose one import location. Importing the same module in
+both places is unnecessary. The examples in this guide use the clearer
+`flake.nix` module list.
 
 ## File 2: `/etc/nixos/hosts/nixos/configuration.nix`
 
@@ -329,6 +358,10 @@ Do not also select the bundled `saitek-x56-rhino` entry in `knownManifests`
 when the local file describes the same stick and throttle. The module rejects
 duplicate manifest selections and duplicate VID:PID pairs.
 
+New GUI-created local manifests start with `unverified` support fields. That
+safe default is independent of the reviewed support states in the bundled
+manifest.
+
 ## Validate, switch, and reconnect
 
 Replace `nixos` with the actual name under `nixosConfigurations` when needed:
@@ -354,9 +387,19 @@ sc-input verify \
 ```
 
 For the simple layout, use the manifest below `/etc/nixos/manifests/` instead.
+For the bundled path, replace `--manifest ...` with
+`--known-manifest saitek-x56-rhino`.
 
-A successful result confirms only native detection and access. It does not
-confirm Wine visibility, Star Citizen visibility, bindings, or gameplay.
+A successful result confirms only native detection and access. It does not by
+itself confirm Wine visibility, Star Citizen visibility, bindings, or gameplay.
+Those later stages were separately confirmed in the maintainer X-56 reference
+test.
+
+In Star Citizen, verify that both devices are listed as enabled and connected,
+then test axis movement and gameplay input. The standard CIG X-56 profile is a
+working starting point but its mapping should be reviewed and adjusted.
+Native `/dev/input/js*` numbers and in-game joystick numbers can differ and
+must not be persisted in a manifest.
 
 ## Common NixOS errors
 
@@ -371,6 +414,7 @@ confirm Wine visibility, Star Citizen visibility, bindings, or gameplay.
 | Home Manager package works but access is unchanged | No NixOS system rule was installed | Configure the NixOS module and rebuild |
 | Access is unchanged after a successful rebuild | Existing nodes predate the new rule | Reconnect both components or log out and back in |
 | Native access succeeds but the game does not | A later diagnostic layer failed | Test Wine, game visibility, binding, and gameplay separately |
+| X-56 works but the layout is wrong | The standard CIG profile is not tailored to the user | Review axes, inversion, curves, dead zones, and button bindings |
 
 ## Reference environment and interoperability
 
@@ -378,6 +422,11 @@ The documented SpaceMouse reference environment used
 [nix-citizen](https://github.com/LovingMelody/nix-citizen), with the
 `wine-astral` package supplied through that project. Citizen Input Manager's
 own Flake and NixOS module do not require nix-citizen.
+
+The X-56 validation used NixOS 26.05, Citizen Input Manager's NixOS module,
+nix-citizen, an Astral Wine/Proton runtime, and the Star Citizen LIVE client.
+Both physical components reached the game and produced usable input. See
+[X-56 functional validation](research/x56-functional-validation.md).
 
 Citizen Input Manager can be used alongside
 [LUG Helper](https://github.com/starcitizen-lug/lug-helper) and nix-citizen
