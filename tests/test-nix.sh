@@ -9,6 +9,6 @@ if command -v nix-instantiate >/dev/null 2>&1; then
 fi
 
 rg -F 'services.udev.packages' "$TEST_ROOT/modules/nixos/default.nix" >/dev/null
-rg -F 'hardware.starCitizenInput.enable' "$TEST_ROOT/README.md" >/dev/null
+rg -F 'hardware.starCitizenInput = {' "$TEST_ROOT/README.md" >/dev/null
 
 printf 'PASS: Nix syntax and module wiring\n'

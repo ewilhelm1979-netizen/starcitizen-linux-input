@@ -1,6 +1,6 @@
 # Star Citizen Linux Input
 
-Citizen Input Manager is a security-focused Linux MVP for discovering,
+Citizen Input Manager is a security-focused Linux tool for discovering,
 grouping, diagnosing, and describing joysticks, HOTAS components, throttles,
 rudder pedals, SpaceMouse devices, button boxes, and related USB HID input
 hardware. Its command-line interface is `sc-input`; its graphical entry point
@@ -13,15 +13,33 @@ Input Manager reports every diagnostic stage independently and never infers a
 later status from native detection. Scoped Udev rendering addresses one access
 boundary; it does not guarantee Wine visibility, binding, or gameplay.
 
-Linux, Wine, and Star Citizen expose different input layers. A controller can
-work through native event nodes and still lack the HIDRAW access or Windows
-input path needed for an in-game binding. This project reports those layers
-separately instead of inferring gameplay support from Linux detection.
+## Prerequisites and installation paths
+
+| Goal | Required | Not required at this stage |
+| --- | --- | --- |
+| Read-only CLI with `nix run` | Linux, Nix, Flakes enabled, connected USB HID controller | Root, Wine, Star Citizen, Home Manager, LUG Helper, nix-citizen |
+| Packaged GUI | Same as above plus a graphical desktop session | Manual installation of Zenity, `jq`, Python, or Udev tools |
+| NixOS hardware integration | NixOS Flake configuration, NixOS system module, known or local manifest, root for `nixos-rebuild` | Home Manager is optional and cannot replace the system module |
+| Home Manager package installation | Home Manager and the Flake input | System Udev rules; those still require the NixOS module |
+| Direct Git checkout | Bash and the command set documented for generic Linux | This is the advanced path; Nix packaging is recommended |
+
+When used through Nix, the package supplies its runtime dependencies,
+including the `acl`, coreutils, findutils, `gawk`, grep, sed, `jq`, libxml2,
+Python, systemd/Udev, and util-linux command sets. The GUI package also supplies
+Zenity and `dialog`.
+
+Wine and Star Citizen are required only for their later diagnostic stages.
+LUG Helper and nix-citizen are related community projects, not runtime
+dependencies of Citizen Input Manager.
+
+Start with the complete [Getting started guide](docs/getting-started.md). It
+covers prerequisites, GUI manifest creation, simple and modular NixOS layouts,
+Home Manager boundaries, rebuilds, and post-installation verification.
 
 ## Architecture
 
 - `sc-input` is the only device-discovery backend and provides JSON output.
-- `sc-input-gui` consumes the backend JSON through Zenity, then `dialog` or
+- `sc-input-gui` consumes backend JSON through Zenity, then `dialog` or
   `whiptail`; it contains no independent hardware-discovery code.
 - Versioned JSON manifests describe stable USB identities and multi-device
   groups without runtime paths or serial numbers.
@@ -29,49 +47,26 @@ separately instead of inferring gameplay support from Linux detection.
 - The NixOS module reads the same manifest model and uses
   `services.udev.packages`.
 
-See [the architecture document](docs/architecture.md) for the trust boundaries
-and status pipeline.
-
-## Related Star Citizen Linux projects
-
-Citizen Input Manager complements the existing Star Citizen Linux community
-tooling:
-
-- [LUG Helper](https://github.com/starcitizen-lug/lug-helper) is the official
-  installer maintained by the Star Citizen Linux Users Group and community. It
-  covers broader installation, Wine-runner management, system preparation,
-  maintenance, and general troubleshooting workflows.
-- [nix-citizen](https://github.com/LovingMelody/nix-citizen) provides
-  NixOS-oriented Star Citizen packages, including LUG Helper and the
-  `wine-astral` package used in the documented SpaceMouse reference
-  environment.
-
-Citizen Input Manager focuses on a narrower input-device problem: controller
-discovery, physical-device grouping, access verification, device-scoped Udev
-rendering, privacy-aware reports, and separation of native Linux, Wine, Star
-Citizen visibility, binding, and gameplay states.
-
-These references are provided for attribution and technical context. Citizen
-Input Manager is maintained independently; no affiliation or endorsement by
-the LUG Helper or nix-citizen maintainers is implied.
+See [Architecture](docs/architecture.md) for trust boundaries and the status
+pipeline.
 
 ## Security model
 
-Discovery is bounded to `/sys/class/hidraw`, `/sys/class/input`, the matching
-device nodes, and `/proc/bus/input/devices`. USB identity is confirmed by
-walking at most 32 parents to readable `idVendor` and `idProduct` attributes.
-Alternative roots work only in explicit test mode.
+Discovery is bounded to `/sys/class/hidraw`, `/sys/class/input`, matching device
+nodes, and `/proc/bus/input/devices`. USB identity is confirmed by walking at
+most 32 parents to readable `idVendor` and `idProduct` attributes.
 
 The project never grants global HIDRAW or input access, changes group
 membership, writes persistent ACLs, launches Wine or Star Citizen, edits Wine
 registry values, or changes controller bindings. Rendering a rule is not an
-installation. A scoped rule can fix one permission boundary, but it cannot by
-itself guarantee a usable Wine or Star Citizen input path.
+installation.
 
-Read [the full security model](docs/security-model.md) before using the
-imperative installer code outside an isolated fixture.
+Read [Security model](docs/security-model.md) before using imperative installer
+code outside an isolated fixture.
 
 ## Read-only quick start
+
+No repository clone is required:
 
 ```console
 nix run github:ewilhelm1979-netizen/starcitizen-linux-input -- discover
@@ -86,57 +81,33 @@ nix run github:ewilhelm1979-netizen/starcitizen-linux-input -- \
 The third command only prints a rule. It does not write under `/etc`, reload
 Udev, trigger hardware, or change a device permission.
 
-## CLI examples
-
-```console
-sc-input discover --json
-sc-input list
-runtime_id=$(sc-input discover --json | jq -er '.devices[0].runtimeId')
-sc-input inspect --device "$runtime_id" --json
-sc-input manifest list --json
-sc-input verify --known-manifest 3dconnexion-spacemouse-wireless-usb
-sc-input verify --known-manifest 3dconnexion-spacemouse-wireless-usb \
-  --confirm WINE_VISIBLE
-sc-input report --known-manifest saitek-x56-rhino --privacy public
-```
-
-Every command has `--help` and documented exit codes. Runtime IDs identify one
-physical device for the current discovery run only; they are never stored in a
-manifest. Explicit `--confirm` states affect only the current output and are
-never persisted.
-
 ## Citizen Input Manager GUI
 
 ```console
 nix run github:ewilhelm1979-netizen/starcitizen-linux-input#gui
-# or
-sc-input gui
 ```
 
-The GUI can list and inspect devices, group multiple devices into a local
-manifest, preview a manifest and Udev rule, display a safe dry-run command, and
-export diagnostics. It never asks for a password and never performs a
-privileged change. See [GUI behavior and fallbacks](docs/gui.md).
+The packaged GUI supplies the CLI, Zenity, and `dialog`. It can list and
+inspect devices, group multiple devices into a local manifest, preview the
+manifest and Udev rule, display a safe dry-run command, run native diagnosis,
+and export a public report. It never asks for a password or performs a
+privileged change.
 
-For a multi-component HOTAS, select every physical component in the device
-list. With the Zenity interface, hold **Ctrl** while clicking non-adjacent rows
-such as the throttle and stick. Create one grouped manifest for the complete
-HOTAS set; separate manifests are needed only when the components should be
-managed independently.
+For a multi-component HOTAS, hold **Ctrl** while selecting non-adjacent device
+rows such as the throttle and stick. Create one grouped manifest for the
+complete set. See [GUI and TUI](docs/gui.md).
 
 ## Create a manifest
 
-A manifest may describe either one physical device or a grouped set of HOTAS
-components. Every selected device needs exactly one role, and the comma-separated
-role list must follow the same order as the selected device rows.
+A manifest may describe one physical device or a grouped set of HOTAS
+components. Every selected device requires one unique role, and role order must
+match the selected device order.
 
 ### Single device
 
-Select one discovered runtime ID, then create an unverified private local
-manifest:
-
 ```console
 runtime_id=$(sc-input discover --json | jq -er '.devices[0].runtimeId')
+
 sc-input manifest create \
   --devices "$runtime_id" \
   --id my-controller \
@@ -145,14 +116,14 @@ sc-input manifest create \
   --preview
 ```
 
-### Multi-device HOTAS in the GUI
+### X-56 stick and throttle
 
-For an X-56 set, select both physical components in the same device dialog:
+Select both devices in the same GUI dialog:
 
-- Saitek Pro Flight X-56 Rhino Throttle — `0738:a221`
-- Saitek Pro Flight X-56 Rhino Stick — `0738:2221`
+- throttle: `0738:a221`;
+- stick: `0738:2221`.
 
-If the throttle row appears before the stick row, enter:
+If the throttle row appears first:
 
 ```text
 Safe slug id: saitek-x56-rhino-local
@@ -160,28 +131,24 @@ Display name: Saitek X-56 Rhino
 Roles, comma-separated: throttle,stick
 ```
 
-If the stick row appears first, use `stick,throttle` instead. Review the
-manifest preview and confirm that `0738:a221` maps to `throttle` and
-`0738:2221` maps to `stick` before saving. The `-local` suffix avoids a naming
-collision with the built-in `saitek-x56-rhino` research manifest. New local
-support states remain `unverified` until they are confirmed separately.
+If the stick row appears first, use `stick,throttle`. Confirm the mapping in the
+preview before saving. The local support states remain `unverified`.
 
-Omit `--preview` only after reviewing the JSON. The default private location is
-`${XDG_DATA_HOME:-$HOME/.local/share}/starcitizen-linux-input/manifests`.
-Existing files are not overwritten. See [device manifests](docs/device-manifests.md).
+The GUI saves private local manifests under:
 
-### Use the local manifest on NixOS
+```text
+${XDG_DATA_HOME:-$HOME/.local/share}/starcitizen-linux-input/manifests/
+```
 
-The hardware integration is provided by a **NixOS system module**. The
-`hardware.starCitizenInput` block belongs at the top level of the NixOS system
-configuration, not inside `services`, `environment.systemPackages`, or a Home
-Manager user module.
+Read [Device manifests](docs/device-manifests.md) for validation and storage
+rules.
 
-Home Manager may install the CLI or GUI for one user, but Home Manager alone
-cannot install the required system Udev rules. Hardware access still requires
-the NixOS module and `manifestFiles` in the system configuration.
+## Use a local manifest on NixOS
 
-For a simple Flake-based `/etc/nixos` layout, keep these files together:
+Hardware access is provided by the **NixOS system module**. Home Manager may
+install the CLI or GUI, but it cannot install the system Udev rules by itself.
+
+### Simple `/etc/nixos` layout
 
 ```text
 /etc/nixos/
@@ -191,60 +158,73 @@ For a simple Flake-based `/etc/nixos` layout, keep these files together:
     └── saitek-x56-rhino-local.json
 ```
 
-The Flake imports `star-citizen-input.nixosModules.default`, while
-`/etc/nixos/configuration.nix` contains the top-level option block:
+### Modular host layout
+
+```text
+/etc/nixos/
+├── flake.nix
+├── hosts/
+│   └── nixos/
+│       ├── configuration.nix
+│       ├── hardware-configuration.nix
+│       └── manifests/
+│           └── saitek-x56-rhino-local.json
+└── modules/
+```
+
+A path such as `./manifests/saitek-x56-rhino-local.json` is resolved relative
+to the Nix file containing it.
+
+Add the input:
 
 ```nix
-{ config, pkgs, ... }:
-
-{
-  hardware.starCitizenInput = {
-    enable = true;
-    knownManifests = [ ];
-    manifestFiles = [
-      ./manifests/saitek-x56-rhino-local.json
-    ];
-    diagnosticTools = true;
-    gui = true;
-  };
-}
+star-citizen-input = {
+  url = "github:ewilhelm1979-netizen/starcitizen-linux-input";
+  inputs.nixpkgs.follows = "nixpkgs";
+};
 ```
 
-Because the path is relative to `configuration.nix`, the example expects the
-manifest at `/etc/nixos/manifests/saitek-x56-rhino-local.json`.
+Import the module exactly once, normally in the system module list:
 
-Copy the reviewed GUI output into the configuration source:
-
-```console
-sudo mkdir -p /etc/nixos/manifests
-sudo cp \
-  "${XDG_DATA_HOME:-$HOME/.local/share}/starcitizen-linux-input/manifests/saitek-x56-rhino-local.json" \
-  /etc/nixos/manifests/
+```nix
+modules = [
+  inputs.star-citizen-input.nixosModules.default
+  ./hosts/nixos/configuration.nix
+];
 ```
 
-Do not also add `saitek-x56-rhino` to `knownManifests` when the local manifest
-describes the same stick and throttle. The module rejects duplicate manifest
-selections and duplicate VID:PID pairs.
+A host configuration that already receives `inputs` through `specialArgs` may
+instead import it through its `imports` list.
 
-Validate first, then switch:
+At the top level of `configuration.nix`:
+
+```nix
+hardware.starCitizenInput = {
+  enable = true;
+  knownManifests = [ ];
+  manifestFiles = [
+    ./manifests/saitek-x56-rhino-local.json
+  ];
+  diagnosticTools = true;
+  gui = true;
+};
+```
+
+When an existing `hardware = { ... };` block is present, place only
+`starCitizenInput = { ... };` inside it.
+
+Do not also enable the bundled `saitek-x56-rhino` manifest when the local file
+describes the same USB identities.
+
+Validate, switch, and reconnect the controller components:
 
 ```console
 sudo nixos-rebuild dry-build --flake /etc/nixos#nixos
 sudo nixos-rebuild switch --flake /etc/nixos#nixos
 ```
 
-After rebuilding, reconnect both X-56 components so the scoped `uaccess` rules
-apply to freshly enumerated HIDRAW nodes.
-
-A traditional non-Flake import is not currently part of the tested public
-interface. Existing `/etc/nixos/configuration.nix` users can keep that file and
-add a minimal `/etc/nixos/flake.nix` wrapper. See the
-[NixOS guide](docs/nixos.md) for the complete Flake-module and Home Manager
-examples.
-
-The module installs only the exact HIDRAW rules described by the manifest. It
-does not change the local `unverified` support states or prove Wine visibility,
-Star Citizen bindings, or gameplay.
+Then verify native discovery and access again. Read [NixOS](docs/nixos.md) for
+the complete Flake, modular host, Home Manager, and troubleshooting examples.
 
 ## Udev rule preview
 
@@ -253,68 +233,75 @@ sc-input udev render --known-manifest 3dconnexion-spacemouse-wireless-usb
 sc-input udev render --known-manifest saitek-x56-rhino
 ```
 
-The SpaceMouse rule is backed by a tested reference. The X-56 output is a
-research candidate only. It does not claim to resolve the X-56 issue.
+The SpaceMouse rule is backed by a tested reference. The bundled X-56 output is
+a research candidate only and does not claim to resolve the X-56 issue.
 
-## NixOS
+## Diagnostic stages
 
-```nix
-{
-  inputs.star-citizen-input.url =
-    "github:ewilhelm1979-netizen/starcitizen-linux-input";
+Citizen Input Manager keeps the following states separate:
 
-  outputs = { nixpkgs, star-citizen-input, ... }: {
-    nixosConfigurations.example = nixpkgs.lib.nixosSystem {
-      modules = [
-        star-citizen-input.nixosModules.default
-        {
-          hardware.starCitizenInput.enable = true;
-          hardware.starCitizenInput.knownManifests = [
-            "3dconnexion-spacemouse-wireless-usb"
-          ];
-          hardware.starCitizenInput.gui = false;
-        }
-      ];
-    };
-  };
-}
-```
+1. native Linux detection;
+2. effective native access;
+3. Wine visibility;
+4. Star Citizen visibility;
+5. binding confirmation;
+6. gameplay confirmation.
 
-The module is disabled by default. Read [the NixOS guide](docs/nixos.md) before
-enabling a manifest.
+Use [Wine diagnostics](docs/wine-diagnostics.md) and
+[Star Citizen diagnostics](docs/star-citizen-diagnostics.md) only after native
+discovery and access are understood.
 
 ## Generic Linux
 
-Use `discover`, `verify`, and `udev render` first. The imperative installer has
-`--dry-run`, performs no automatic privilege escalation, rejects symlink
-and hard-linked targets, makes recoverable backups, rolls back interrupted or
-failed publication, and never reloads rules or triggers devices. See [the
-generic Linux guide](docs/generic-linux.md).
+The Nix package is the recommended dependency-complete path. Direct checkout
+execution requires the commands listed in [Generic Linux](docs/generic-linux.md).
+The imperative installer performs no privilege escalation, Udev reload, or
+device trigger.
+
+## Related Star Citizen Linux projects
+
+Citizen Input Manager complements the existing Star Citizen Linux community
+tooling:
+
+- [LUG Helper](https://github.com/starcitizen-lug/lug-helper) is the official
+  installer maintained by the Star Citizen Linux Users Group and community. It
+  covers broader installation, Wine-runner management, system preparation,
+  maintenance, and general troubleshooting workflows.
+- [nix-citizen](https://github.com/LovingMelody/nix-citizen) provides
+  NixOS-oriented Star Citizen packages, including LUG Helper and
+  `wine-astral`.
+
+Citizen Input Manager is maintained independently; no affiliation or endorsement is implied.
 
 ## Support boundaries
 
 - SpaceMouse Wireless USB `256f:c63a` is the tested reference: NixOS 26.05,
-  Nix-Citizen, Astral Wine 11.12, Star Citizen LIVE 4.9.188.23497, six axes,
+  nix-citizen, Astral Wine 11.12, Star Citizen LIVE 4.9.188.23497, six axes,
   flight and shared ground-vehicle movement, no drift or cross-axis input.
-  Bluetooth and Universal Receiver operation remain unverified and may use
-  different USB identities or presentation paths.
-- X-56 stick `0738:2221` and throttle `0738:a221` are a research case. Linux and
-  `joy.cpl` visibility were reported, but in-game input remained unreliable and
-  Ghost controllers were observed across DInput and Windows.Gaming.Input.
-- The tool does not change Wine registry settings, Wine runners, or Star Citizen
-  bindings. It does not create or distribute Star Citizen controller profiles.
+  Bluetooth and Universal Receiver operation remain unverified.
+- X-56 stick `0738:2221` and throttle `0738:a221` remain a research case.
+  Linux and `joy.cpl` visibility were reported, but in-game input remained
+  unreliable and Ghost controllers were observed.
+- The tool does not change Wine registry settings, Wine runners, or Star
+  Citizen bindings and does not distribute controller profiles.
 
-Read the [support matrix](docs/support-matrix.md), the
+Read [Support matrix](docs/support-matrix.md), the
 [SpaceMouse case study](docs/research/spacemouse-case-study.md), and the
 [X-56 research summary](docs/research/nix-citizen-issue-108.md).
 
-Public references:
+## Documentation
 
-- [SpaceMouse reference project](https://github.com/ewilhelm1979-netizen/spacemouse)
-- [LovingMelody/nix-citizen issue #108](https://github.com/LovingMelody/nix-citizen/issues/108)
-
-This project is not affiliated with Cloud Imperium Games, Logitech, Saitek,
-3Dconnexion, WinWing, or any other hardware manufacturer.
+- [Getting started](docs/getting-started.md)
+- [Architecture](docs/architecture.md)
+- [Security model](docs/security-model.md)
+- [GUI and TUI](docs/gui.md)
+- [Device manifests](docs/device-manifests.md)
+- [NixOS](docs/nixos.md)
+- [Generic Linux](docs/generic-linux.md)
+- [Troubleshooting](docs/troubleshooting.md)
+- [Wine diagnostics](docs/wine-diagnostics.md)
+- [Star Citizen diagnostics](docs/star-citizen-diagnostics.md)
+- [Support matrix](docs/support-matrix.md)
 
 ## Development
 
