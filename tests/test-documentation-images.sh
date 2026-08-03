@@ -95,8 +95,8 @@ rg -F 'in English. Keep the AI-assistance disclosure' CONTRIBUTING.md >/dev/null
 
 jq -e '.support == {"nativeLinux":"tested","hidrawUaccess":"tested","wine":"tested","starCitizen":"tested"}' \
   manifests/3dconnexion/spacemouse-wireless-usb.json >/dev/null || fail 'SpaceMouse support state changed'
-jq -e '.support == {"nativeLinux":"reported","hidrawUaccess":"candidate","wine":"reported","starCitizen":"unverified"}' \
-  manifests/saitek/x56-rhino.json >/dev/null || fail 'X-56 support state changed'
+jq -e '.support == {"nativeLinux":"tested","hidrawUaccess":"candidate","wine":"tested","starCitizen":"tested"}' \
+  manifests/saitek/x56-rhino.json >/dev/null || fail 'X-56 support state changed inconsistently'
 if find . -type f \( -name '*.xml' -o -name 'actionmaps.xml' \) -print -quit | grep -q .; then
   fail 'unexpected Star Citizen controller profile'
 fi
