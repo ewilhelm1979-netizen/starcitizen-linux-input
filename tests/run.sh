@@ -32,6 +32,7 @@ tests/test-diagnostics.sh
 tests/test-adversarial.sh
 tests/test-documentation-images.sh
 tests/test-ecosystem-attribution.sh
+bash tests/test-documentation-onboarding.sh
 python3 tests/property_fuzz.py
 tests/test-nix.sh
 tests/security-scan.sh
