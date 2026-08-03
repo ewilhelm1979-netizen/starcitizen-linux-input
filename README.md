@@ -260,17 +260,19 @@ device trigger.
 
 ## Related Star Citizen Linux projects
 
-Citizen Input Manager complements the existing community tooling:
+Citizen Input Manager complements the existing Star Citizen Linux community
+tooling:
 
-- [LUG Helper](https://github.com/starcitizen-lug/lug-helper) covers broader
-  installation, Wine-runner management, system preparation, maintenance, and
-  general troubleshooting workflows.
+- [LUG Helper](https://github.com/starcitizen-lug/lug-helper) is the official
+  installer maintained by the Star Citizen Linux Users Group and community. It
+  covers broader installation, Wine-runner management, system preparation,
+  maintenance, and general troubleshooting workflows.
 - [nix-citizen](https://github.com/LovingMelody/nix-citizen) provides
   NixOS-oriented Star Citizen packages, including LUG Helper and
   `wine-astral`.
 
-Citizen Input Manager remains independently maintained. No affiliation or
-endorsement by those maintainers is implied.
+Citizen Input Manager is maintained independently; no affiliation or
+endorsement by the LUG Helper or nix-citizen maintainers is implied.
 
 ## Support boundaries
 
