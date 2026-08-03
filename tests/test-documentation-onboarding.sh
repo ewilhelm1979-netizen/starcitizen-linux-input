@@ -17,7 +17,9 @@ rg -F '](docs/getting-started.md)' README.md >/dev/null ||
   fail 'README getting-started link is missing'
 rg -F 'When used through Nix, the package supplies its runtime dependencies' README.md >/dev/null ||
   fail 'README packaged dependency guidance is missing'
-rg -F 'Home Manager may install the CLI or GUI, but it cannot install the system Udev rules by itself.' README.md >/dev/null ||
+rg -F 'Home Manager may' README.md >/dev/null ||
+  fail 'README Home Manager introduction is missing'
+rg -F 'install the CLI or GUI, but it cannot install the system Udev rules by itself.' README.md >/dev/null ||
   fail 'README Home Manager boundary is missing'
 
 for heading in \
@@ -61,7 +63,9 @@ for dependency in acl coreutils findutils gawk jq libxml2 Python systemd util-li
     fail "generic Linux dependency is missing: $dependency"
 done
 
-rg -F 'Hold **Ctrl** while clicking non-adjacent rows.' docs/gui.md >/dev/null ||
+rg -F 'Hold **Ctrl**' docs/gui.md >/dev/null ||
+  fail 'GUI Ctrl selection guidance is missing'
+rg -F 'while clicking non-adjacent rows.' docs/gui.md >/dev/null ||
   fail 'GUI multi-selection guidance is missing'
 rg -F 'The saved file is not automatically installed into NixOS.' docs/gui.md >/dev/null ||
   fail 'GUI-to-NixOS boundary is missing'
