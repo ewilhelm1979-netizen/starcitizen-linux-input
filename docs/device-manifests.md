@@ -102,8 +102,8 @@ in the user's home directory.
 
 ## Validate and render
 
-The CLI accepts either a bundled manifest ID or an absolute path. Local paths
-must be absolute and canonical:
+The CLI accepts either a bundled manifest ID or an absolute path.
+Local paths must be absolute and canonical:
 
 ```console
 manifest="${XDG_DATA_HOME:-$HOME/.local/share}/starcitizen-linux-input/manifests/saitek-x56-rhino-local.json"
