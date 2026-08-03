@@ -172,44 +172,79 @@ Existing files are not overwritten. See [device manifests](docs/device-manifests
 
 ### Use the local manifest on NixOS
 
-For a Flake-based NixOS configuration, copy the reviewed manifest from the XDG
-data directory into the Nix configuration source. Nix should evaluate the
-tracked copy rather than a mutable file under the user's home directory:
+The hardware integration is provided by a **NixOS system module**. The
+`hardware.starCitizenInput` block belongs at the top level of the NixOS system
+configuration, not inside `services`, `environment.systemPackages`, or a Home
+Manager user module.
 
-```console
-mkdir -p /path/to/your/nixos-config/manifests
-cp "${XDG_DATA_HOME:-$HOME/.local/share}/starcitizen-linux-input/manifests/saitek-x56-rhino-local.json" \
-  /path/to/your/nixos-config/manifests/
+Home Manager may install the CLI or GUI for one user, but Home Manager alone
+cannot install the required system Udev rules. Hardware access still requires
+the NixOS module and `manifestFiles` in the system configuration.
+
+For a simple Flake-based `/etc/nixos` layout, keep these files together:
+
+```text
+/etc/nixos/
+├── flake.nix
+├── configuration.nix
+└── manifests/
+    └── saitek-x56-rhino-local.json
 ```
 
-If the module is already imported, enable the local file with `manifestFiles`:
+The Flake imports `star-citizen-input.nixosModules.default`, while
+`/etc/nixos/configuration.nix` contains the top-level option block:
 
 ```nix
-hardware.starCitizenInput = {
-  enable = true;
-  manifestFiles = [
-    ./manifests/saitek-x56-rhino-local.json
-  ];
+{ config, pkgs, ... }:
 
-  diagnosticTools = true;
-  gui = true;
-};
+{
+  hardware.starCitizenInput = {
+    enable = true;
+    knownManifests = [ ];
+    manifestFiles = [
+      ./manifests/saitek-x56-rhino-local.json
+    ];
+    diagnosticTools = true;
+    gui = true;
+  };
+}
+```
+
+Because the path is relative to `configuration.nix`, the example expects the
+manifest at `/etc/nixos/manifests/saitek-x56-rhino-local.json`.
+
+Copy the reviewed GUI output into the configuration source:
+
+```console
+sudo mkdir -p /etc/nixos/manifests
+sudo cp \
+  "${XDG_DATA_HOME:-$HOME/.local/share}/starcitizen-linux-input/manifests/saitek-x56-rhino-local.json" \
+  /etc/nixos/manifests/
 ```
 
 Do not also add `saitek-x56-rhino` to `knownManifests` when the local manifest
 describes the same stick and throttle. The module rejects duplicate manifest
-selections and duplicate VID:PID pairs. After rebuilding, reconnect both X-56
-components so the scoped `uaccess` rules apply to freshly enumerated HIDRAW
-nodes:
+selections and duplicate VID:PID pairs.
+
+Validate first, then switch:
 
 ```console
-sudo nixos-rebuild switch --flake /path/to/your/nixos-config#example
+sudo nixos-rebuild dry-build --flake /etc/nixos#nixos
+sudo nixos-rebuild switch --flake /etc/nixos#nixos
 ```
+
+After rebuilding, reconnect both X-56 components so the scoped `uaccess` rules
+apply to freshly enumerated HIDRAW nodes.
+
+A traditional non-Flake import is not currently part of the tested public
+interface. Existing `/etc/nixos/configuration.nix` users can keep that file and
+add a minimal `/etc/nixos/flake.nix` wrapper. See the
+[NixOS guide](docs/nixos.md) for the complete Flake-module and Home Manager
+examples.
 
 The module installs only the exact HIDRAW rules described by the manifest. It
 does not change the local `unverified` support states or prove Wine visibility,
-Star Citizen bindings, or gameplay. See the [NixOS guide](docs/nixos.md) for the
-full module-import example and safety boundaries.
+Star Citizen bindings, or gameplay.
 
 ## Udev rule preview
 
