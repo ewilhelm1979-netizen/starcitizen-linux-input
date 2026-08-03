@@ -118,7 +118,19 @@ manifest, preview a manifest and Udev rule, display a safe dry-run command, and
 export diagnostics. It never asks for a password and never performs a
 privileged change. See [GUI behavior and fallbacks](docs/gui.md).
 
+For a multi-component HOTAS, select every physical component in the device
+list. With the Zenity interface, hold **Ctrl** while clicking non-adjacent rows
+such as the throttle and stick. Create one grouped manifest for the complete
+HOTAS set; separate manifests are needed only when the components should be
+managed independently.
+
 ## Create a manifest
+
+A manifest may describe either one physical device or a grouped set of HOTAS
+components. Every selected device needs exactly one role, and the comma-separated
+role list must follow the same order as the selected device rows.
+
+### Single device
 
 Select one discovered runtime ID, then create an unverified private local
 manifest:
@@ -132,6 +144,27 @@ sc-input manifest create \
   --roles controller \
   --preview
 ```
+
+### Multi-device HOTAS in the GUI
+
+For an X-56 set, select both physical components in the same device dialog:
+
+- Saitek Pro Flight X-56 Rhino Throttle — `0738:a221`
+- Saitek Pro Flight X-56 Rhino Stick — `0738:2221`
+
+If the throttle row appears before the stick row, enter:
+
+```text
+Safe slug id: saitek-x56-rhino-local
+Display name: Saitek X-56 Rhino
+Roles, comma-separated: throttle,stick
+```
+
+If the stick row appears first, use `stick,throttle` instead. Review the
+manifest preview and confirm that `0738:a221` maps to `throttle` and
+`0738:2221` maps to `stick` before saving. The `-local` suffix avoids a naming
+collision with the built-in `saitek-x56-rhino` research manifest. New local
+support states remain `unverified` until they are confirmed separately.
 
 Omit `--preview` only after reviewing the JSON. The default private location is
 `${XDG_DATA_HOME:-$HOME/.local/share}/starcitizen-linux-input/manifests`.
