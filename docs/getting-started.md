@@ -80,9 +80,31 @@ See the [Generic Linux guide](generic-linux.md).
 
 ## Complete X-56 workflow
 
-The X-56 remains a research case. This workflow creates and applies a narrowly
-scoped local manifest; it does not claim that Wine or Star Citizen gameplay is
-fixed.
+The bundled X-56 manifest is tested in the documented maintainer environment
+for native Linux, Wine, Star Citizen visibility, and usable in-game stick and
+throttle input. This workflow shows the local-manifest path so users can review
+and control the exact grouped JSON used by their host.
+
+The standard CIG X-56 profile was sufficient to prove functionality during the
+2026-08-03 test, but its default mapping was not optimal and still requires
+user-specific binding adjustments. HIDRAW `uaccess` remains `candidate` because
+gameplay success does not independently prove that mechanism was causally
+required.
+
+For the shortest NixOS configuration with the tested bundled manifest, use:
+
+```nix
+hardware.starCitizenInput = {
+  enable = true;
+  knownManifests = [ "saitek-x56-rhino" ];
+  manifestFiles = [ ];
+  diagnosticTools = true;
+  gui = true;
+};
+```
+
+Use either the bundled manifest or a local manifest, never both for the same
+stick and throttle identities.
 
 ### 1. Connect both physical components
 
@@ -128,7 +150,9 @@ The GUI stores the file privately under:
 ${XDG_DATA_HOME:-$HOME/.local/share}/starcitizen-linux-input/manifests/
 ```
 
-New local support states remain `unverified`.
+New local support states remain `unverified`. That is a safe creation default
+and does not downgrade the tested support state of the bundled
+`saitek-x56-rhino` manifest.
 
 ### 4. Validate the saved JSON and preview the rule
 
@@ -331,6 +355,25 @@ sc-input verify \
 A successful native result proves only discovery and current access. Continue
 with Wine, Star Citizen visibility, bindings, and gameplay as separate tests.
 
+### 11. Confirm Wine and Star Citizen separately
+
+Open the Wine controller panel or equivalent runner diagnostic and confirm that
+stick and throttle are presented as separate devices. Then start Star Citizen
+and verify each later stage independently:
+
+- both devices are listed as enabled and connected;
+- axis movement is visible;
+- bindings target the intended joystick instances;
+- input works during gameplay.
+
+The maintainer reference test passed these stages after loading the standard
+CIG X-56 profile. The default profile mapping still required adjustment. Native
+`/dev/input/js*` numbers and in-game joystick numbers differed, so runtime
+indices must not be stored in the manifest.
+
+Read [X-56 functional validation](research/x56-functional-validation.md) for the
+recorded result and scope.
+
 ## Final checklist
 
 Before treating the NixOS integration as complete, confirm:
@@ -347,6 +390,7 @@ Before treating the NixOS integration as complete, confirm:
 - `nixos-rebuild dry-build` and `switch` succeed;
 - both components were reconnected;
 - native access was verified again;
-- Wine and gameplay have not been inferred from the native result.
+- Wine visibility, Star Citizen visibility, bindings, and gameplay were checked separately;
+- the standard CIG profile was reviewed and adjusted rather than assumed optimal.
 
 See [Troubleshooting](troubleshooting.md) when a step fails.

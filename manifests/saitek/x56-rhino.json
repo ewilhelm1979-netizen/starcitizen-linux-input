@@ -3,7 +3,7 @@
   "schemaVersion": 1,
   "id": "saitek-x56-rhino",
   "displayName": "Saitek X-56 Rhino HOTAS",
-  "description": "Research manifest for the separate X-56 stick and throttle; scoped HIDRAW access is a candidate test, not a confirmed fix.",
+  "description": "Validated two-component X-56 stick and throttle manifest; native Linux, Wine, and Star Citizen operation are tested in the documented maintainer reference environment, while scoped HIDRAW uaccess remains a separately tracked candidate.",
   "devices": [
     {
       "role": "stick",
@@ -25,15 +25,19 @@
     "input": "verify-only"
   },
   "support": {
-    "nativeLinux": "reported",
+    "nativeLinux": "tested",
     "hidrawUaccess": "candidate",
-    "wine": "reported",
-    "starCitizen": "unverified"
+    "wine": "tested",
+    "starCitizen": "tested"
   },
   "references": [
     {
       "type": "issue",
       "url": "https://github.com/LovingMelody/nix-citizen/issues/108"
+    },
+    {
+      "type": "documentation",
+      "url": "https://github.com/ewilhelm1979-netizen/starcitizen-linux-input/blob/main/docs/research/x56-functional-validation.md"
     }
   ]
 }

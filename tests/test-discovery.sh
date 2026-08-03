@@ -43,10 +43,14 @@ for scenario in x56-missing-stick x56-missing-throttle; do
   data="$("$TEST_ROOT/bin/sc-input" verify --known-manifest saitek-x56-rhino --json)"
   assert_eq 1 "$(jq '[.components[] | select(.physicalDeviceCount == 0)] | length' <<<"$data")" \
     "$scenario did not report exactly one missing component"
-  assert_eq unverified "$(jq -r '.support.starCitizen' "$TEST_ROOT/manifests/saitek/x56-rhino.json")" \
-    'X-56 Star Citizen support was promoted beyond unverified'
+  assert_eq tested "$(jq -r '.support.starCitizen' "$TEST_ROOT/manifests/saitek/x56-rhino.json")" \
+    'X-56 Star Citizen support does not match the live validation record'
+  assert_eq tested "$(jq -r '.support.nativeLinux' "$TEST_ROOT/manifests/saitek/x56-rhino.json")" \
+    'X-56 native Linux support does not match the live validation record'
+  assert_eq tested "$(jq -r '.support.wine' "$TEST_ROOT/manifests/saitek/x56-rhino.json")" \
+    'X-56 Wine support does not match the live validation record'
   assert_eq candidate "$(jq -r '.support.hidrawUaccess' "$TEST_ROOT/manifests/saitek/x56-rhino.json")" \
-    'X-56 HIDRAW research policy was promoted beyond candidate'
+    'X-56 HIDRAW support must remain candidate without independent causal evidence'
 done
 
 for scenario in x56-duplicate-stick x56-duplicate-throttle; do

@@ -8,10 +8,11 @@ repository-native SVG primitives and no vendor artwork, proprietary artwork,
 or external image asset.
 
 The controller silhouettes are generic. They do not represent verified support
-for every controller shown. SpaceMouse is the tested reference within its
-documented scope; X-56 remains candidate/unverified. The human maintainer
-reviewed and approved the illustration and remains responsible for its
-publication.
+for every controller shown. SpaceMouse is tested within its documented scope.
+X-56 native Linux, Wine, and Star Citizen operation are also tested in the
+documented maintainer reference environment; X-56 HIDRAW `uaccess` remains a
+separately tracked candidate. The human maintainer reviewed and approved the
+illustration and remains responsible for its publication.
 
 ## GUI captures
 
@@ -32,7 +33,8 @@ VID:PID values remain visible because they are required to explain the
 workflow.
 
 The local-manifest form is a sanitized PNG capture. It contains no embedded
-text metadata and no private system information. These assets illustrate the
-GUI flow only and do not change the documented support status of any device.
-The human maintainer remains responsible for the privacy review, technical
-context, and publication decision.
+text metadata and no private system information. New GUI-created manifests
+still begin with `unverified` support fields; that safe default is independent
+of the separately reviewed support states in bundled manifests. The human
+maintainer remains responsible for the privacy review, technical context, and
+publication decision.

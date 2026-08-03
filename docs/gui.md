@@ -109,8 +109,11 @@ Review the preview and confirm:
 0738:2221 -> stick
 ```
 
-The `-local` suffix avoids a name collision with the bundled research
-manifest. New local support states remain `unverified`.
+The `-local` suffix avoids a name collision with the bundled manifest. New
+local support states remain `unverified` by design. This conservative default
+does not downgrade the bundled `saitek-x56-rhino` manifest, which is tested for
+native Linux, Wine, and Star Citizen in the documented maintainer environment.
+X-56 HIDRAW `uaccess` remains `candidate` pending an independent causal check.
 
 The GUI stores the manifest under:
 
@@ -121,6 +124,19 @@ ${XDG_DATA_HOME:-$HOME/.local/share}/starcitizen-linux-input/manifests/
 The saved file is not automatically installed into NixOS. Validate it, preview
 the rule, and then follow the [Getting started guide](getting-started.md) or the
 [NixOS guide](nixos.md).
+
+## Validated X-56 outcome
+
+The 2026-08-03 maintainer test used the grouped X-56 manifest created through
+this workflow. Native Linux showed axis and button activity for both physical
+components. Star Citizen listed the stick and throttle as separate enabled and
+connected controllers, and both supplied usable in-game input after the
+standard CIG X-56 profile was loaded.
+
+The standard profile's mapping was not optimal and still requires
+user-specific binding adjustments. See the
+[X-56 functional validation](research/x56-functional-validation.md) for the
+support-state decision and limitations.
 
 ## Screenshot privacy note
 
