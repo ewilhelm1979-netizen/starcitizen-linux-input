@@ -17,6 +17,7 @@ require_text() {
 }
 
 [[ -f docs/getting-started.md ]] || fail 'getting-started guide is missing'
+[[ -f docs/research/x56-functional-validation.md ]] || fail 'X-56 validation record is missing'
 
 require_text README.md '## Prerequisites and installation paths' \
   'README prerequisites section is missing'
@@ -24,6 +25,8 @@ require_text README.md '](docs/getting-started.md)' \
   'README getting-started link is missing'
 require_text README.md 'Home Manager package installation' \
   'README Home Manager path is missing'
+require_text README.md '## X-56 validated support' \
+  'README validated X-56 section is missing'
 require_text README.md '### File 1:' \
   'README flake file heading is missing'
 require_text README.md '### File 2:' \
@@ -46,6 +49,8 @@ require_text README.md 'starCitizenInput = {' \
   'README hardware option example is missing'
 require_text README.md './manifests/saitek-x56-rhino-local.json' \
   'README relative manifest path is missing'
+require_text README.md 'knownManifests = [ "saitek-x56-rhino" ];' \
+  'README bundled X-56 example is missing'
 
 for heading in \
   '## Prerequisites' \
@@ -65,6 +70,7 @@ for text in \
   './hosts/nixos/configuration.nix' \
   'starCitizenInput = {' \
   './manifests/saitek-x56-rhino-local.json' \
+  'knownManifests = [ "saitek-x56-rhino" ];' \
   'nixos-rebuild dry-build' \
   'sc-input verify'; do
   require_text docs/getting-started.md "$text" \
@@ -77,9 +83,12 @@ require_text docs/getting-started.md '### 7. Edit the same' \
   'getting-started module-import step is missing'
 require_text docs/getting-started.md '### 8. Edit' \
   'getting-started host-configuration step is missing'
+require_text docs/getting-started.md '### 11. Confirm Wine and Star Citizen separately' \
+  'getting-started game verification step is missing'
 
 for heading in \
   '## Prerequisites' \
+  '## Tested bundled X-56 manifest' \
   '## Three files, three different jobs' \
   '## File 1:' \
   '## File 2:' \
@@ -99,7 +108,8 @@ for text in \
   'inputs.star-citizen-input.nixosModules.default' \
   './hosts/nixos/configuration.nix' \
   'starCitizenInput = {' \
-  './manifests/saitek-x56-rhino-local.json'; do
+  './manifests/saitek-x56-rhino-local.json' \
+  'knownManifests = [ "saitek-x56-rhino" ];'; do
   require_text docs/nixos.md "$text" \
     "NixOS placement requirement is missing: $text"
 done
@@ -113,8 +123,12 @@ require_text docs/gui.md 'Hold **Ctrl**' \
   'GUI Ctrl selection guidance is missing'
 require_text docs/gui.md 'The saved file is not automatically installed into NixOS.' \
   'GUI-to-NixOS boundary is missing'
+require_text docs/gui.md '## Validated X-56 outcome' \
+  'GUI validated X-56 outcome is missing'
 require_text docs/device-manifests.md '## Single-device and grouped manifests' \
   'grouped manifest documentation is missing'
+require_text docs/device-manifests.md '## Bundled X-56 support state' \
+  'bundled X-56 support documentation is missing'
 require_text docs/device-manifests.md 'Local paths must be absolute and canonical' \
   'absolute manifest path guidance is missing'
 
@@ -122,10 +136,20 @@ for symptom in \
   'hardware.starCitizenInput' \
   'The manifest path is wrong' \
   'Duplicate X-56 manifest or VID:PID error' \
-  'Home Manager installed the GUI but access did not change'; do
+  'Home Manager installed the GUI but access did not change' \
+  'X-56 works but the standard profile is not optimal'; do
   require_text docs/troubleshooting.md "$symptom" \
     "troubleshooting topic is missing: $symptom"
 done
+
+require_text docs/support-matrix.md '| X-56 stick `0738:2221` | tested | candidate | tested | tested |' \
+  'X-56 stick support matrix state is inconsistent'
+require_text docs/support-matrix.md '| X-56 throttle `0738:a221` | tested | candidate | tested | tested |' \
+  'X-56 throttle support matrix state is inconsistent'
+require_text docs/research/x56-functional-validation.md 'The standard CIG profile was sufficient to prove input' \
+  'X-56 validation profile limitation is missing'
+require_text docs/research/x56-functional-validation.md 'HIDRAW `uaccess` | `candidate`' \
+  'X-56 validation HIDRAW boundary is missing'
 
 require_text README.md '## AI-assisted development' \
   'AI-assisted development disclosure is missing'
@@ -135,8 +159,8 @@ require_text README.md 'The human maintainer remains responsible for architectur
 jq -e '.support == {"nativeLinux":"tested","hidrawUaccess":"tested","wine":"tested","starCitizen":"tested"}' \
   manifests/3dconnexion/spacemouse-wireless-usb.json >/dev/null ||
   fail 'SpaceMouse support state changed'
-jq -e '.support == {"nativeLinux":"reported","hidrawUaccess":"candidate","wine":"reported","starCitizen":"unverified"}' \
+jq -e '.support == {"nativeLinux":"tested","hidrawUaccess":"candidate","wine":"tested","starCitizen":"tested"}' \
   manifests/saitek/x56-rhino.json >/dev/null ||
-  fail 'X-56 support state changed'
+  fail 'X-56 support state is inconsistent with live validation'
 
-printf 'PASS: prerequisites, exact file placement, NixOS, Home Manager, and troubleshooting documentation\n'
+printf 'PASS: prerequisites, exact file placement, NixOS, Home Manager, X-56 validation, and troubleshooting documentation\n'
