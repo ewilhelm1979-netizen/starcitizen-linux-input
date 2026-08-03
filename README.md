@@ -145,60 +145,94 @@ rules.
 
 ## Use a local manifest on NixOS
 
-Hardware access is provided by the **NixOS system module**. Home Manager may
-install the CLI or GUI, but it cannot install the system Udev rules by itself.
+The recommended modular setup uses **three different files with three different
+jobs**. Do not paste all blocks into `configuration.nix`.
 
-### Simple `/etc/nixos` layout
+### File 1: `/etc/nixos/flake.nix`
 
-```text
-/etc/nixos/
-├── flake.nix
-├── configuration.nix
-└── manifests/
-    └── saitek-x56-rhino-local.json
-```
+This file declares the GitHub input and imports the NixOS module.
 
-### Modular host layout
-
-```text
-/etc/nixos/
-├── flake.nix
-├── hosts/
-│   └── nixos/
-│       ├── configuration.nix
-│       ├── hardware-configuration.nix
-│       └── manifests/
-│           └── saitek-x56-rhino-local.json
-└── modules/
-```
-
-A path such as `./manifests/saitek-x56-rhino-local.json` is resolved relative
-to the Nix file containing it.
-
-Add the input:
+Add `star-citizen-input` **inside the existing top-level `inputs = { ... };`
+block**:
 
 ```nix
-star-citizen-input = {
-  url = "github:ewilhelm1979-netizen/starcitizen-linux-input";
-  inputs.nixpkgs.follows = "nixpkgs";
-};
+# /etc/nixos/flake.nix
+{
+  inputs = {
+    # Keep your existing inputs here.
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+
+    star-citizen-input = {
+      url = "github:ewilhelm1979-netizen/starcitizen-linux-input";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+  };
+
+  outputs = { self, nixpkgs, ... }@inputs: {
+    nixosConfigurations.nixos = nixpkgs.lib.nixosSystem {
+      system = "x86_64-linux";
+
+      # Keep your existing specialArgs here.
+      specialArgs = { inherit inputs; };
+
+      modules = [
+        # Import the Citizen Input Manager NixOS module exactly once.
+        inputs.star-citizen-input.nixosModules.default
+
+        # Keep your existing host configuration import.
+        ./hosts/nixos/configuration.nix
+      ];
+    };
+  };
+}
 ```
 
-Import the module exactly once, normally in the system module list:
+The `star-citizen-input = { ... };` block belongs in `inputs`. The
+`inputs.star-citizen-input.nixosModules.default` line belongs in the
+`modules = [ ... ];` list of `nixosSystem` in the same `flake.nix` file.
+
+Do **not** put the Flake input in `configuration.nix`. Do **not** create a second
+`modules = [ ... ];` block in `configuration.nix`.
+
+### File 2: `/etc/nixos/hosts/nixos/configuration.nix`
+
+This file configures the imported module. When the file already has a
+`hardware = { ... };` block, add only `starCitizenInput = { ... };` inside that
+existing block:
 
 ```nix
-modules = [
-  inputs.star-citizen-input.nixosModules.default
-  ./hosts/nixos/configuration.nix
-];
+# /etc/nixos/hosts/nixos/configuration.nix
+{
+  # Existing configuration continues above.
+
+  hardware = {
+    enableRedistributableFirmware = true;
+
+    # Add this block inside the existing hardware attribute set.
+    starCitizenInput = {
+      enable = true;
+      knownManifests = [ ];
+      manifestFiles = [
+        ./manifests/saitek-x56-rhino-local.json
+      ];
+      diagnosticTools = true;
+      gui = true;
+    };
+
+    # Existing Bluetooth, NVIDIA, graphics, controller, and scanner settings
+    # continue here.
+  };
+}
 ```
 
-A host configuration that already receives `inputs` through `specialArgs` may
-instead import it through its `imports` list.
+Inside `hardware = { ... };`, write `starCitizenInput = { ... };`, not
+`hardware.starCitizenInput = { ... };`.
 
-At the top level of `configuration.nix`:
+For a configuration without an existing `hardware = { ... };` block, the
+following top-level form is equivalent:
 
 ```nix
+# /etc/nixos/hosts/nixos/configuration.nix
 hardware.starCitizenInput = {
   enable = true;
   knownManifests = [ ];
@@ -210,8 +244,29 @@ hardware.starCitizenInput = {
 };
 ```
 
-When an existing `hardware = { ... };` block is present, place only
-`starCitizenInput = { ... };` inside it.
+### File 3: the local manifest JSON
+
+Because the relative path is written in
+`/etc/nixos/hosts/nixos/configuration.nix`, this entry:
+
+```nix
+./manifests/saitek-x56-rhino-local.json
+```
+
+resolves to exactly:
+
+```text
+/etc/nixos/hosts/nixos/manifests/saitek-x56-rhino-local.json
+```
+
+Copy the reviewed GUI output there:
+
+```console
+sudo mkdir -p /etc/nixos/hosts/nixos/manifests
+sudo cp \
+  "${XDG_DATA_HOME:-$HOME/.local/share}/starcitizen-linux-input/manifests/saitek-x56-rhino-local.json" \
+  /etc/nixos/hosts/nixos/manifests/
+```
 
 Do not also enable the bundled `saitek-x56-rhino` manifest when the local file
 describes the same USB identities.
