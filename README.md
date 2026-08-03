@@ -170,6 +170,47 @@ Omit `--preview` only after reviewing the JSON. The default private location is
 `${XDG_DATA_HOME:-$HOME/.local/share}/starcitizen-linux-input/manifests`.
 Existing files are not overwritten. See [device manifests](docs/device-manifests.md).
 
+### Use the local manifest on NixOS
+
+For a Flake-based NixOS configuration, copy the reviewed manifest from the XDG
+data directory into the Nix configuration source. Nix should evaluate the
+tracked copy rather than a mutable file under the user's home directory:
+
+```console
+mkdir -p /path/to/your/nixos-config/manifests
+cp "${XDG_DATA_HOME:-$HOME/.local/share}/starcitizen-linux-input/manifests/saitek-x56-rhino-local.json" \
+  /path/to/your/nixos-config/manifests/
+```
+
+If the module is already imported, enable the local file with `manifestFiles`:
+
+```nix
+hardware.starCitizenInput = {
+  enable = true;
+  manifestFiles = [
+    ./manifests/saitek-x56-rhino-local.json
+  ];
+
+  diagnosticTools = true;
+  gui = true;
+};
+```
+
+Do not also add `saitek-x56-rhino` to `knownManifests` when the local manifest
+describes the same stick and throttle. The module rejects duplicate manifest
+selections and duplicate VID:PID pairs. After rebuilding, reconnect both X-56
+components so the scoped `uaccess` rules apply to freshly enumerated HIDRAW
+nodes:
+
+```console
+sudo nixos-rebuild switch --flake /path/to/your/nixos-config#example
+```
+
+The module installs only the exact HIDRAW rules described by the manifest. It
+does not change the local `unverified` support states or prove Wine visibility,
+Star Citizen bindings, or gameplay. See the [NixOS guide](docs/nixos.md) for the
+full module-import example and safety boundaries.
+
 ## Udev rule preview
 
 ```console
