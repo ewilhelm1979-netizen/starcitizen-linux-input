@@ -64,6 +64,33 @@ Use one grouped manifest for a stick and throttle that should be managed as one
 HOTAS set. Create separate manifests only when the devices should be managed
 independently.
 
+## Bundled X-56 support state
+
+The bundled `saitek-x56-rhino` manifest describes the stick `0738:2221` and
+throttle `0738:a221` as one grouped HOTAS set.
+
+Following live maintainer validation on 2026-08-03, its support fields are:
+
+```json
+{
+  "nativeLinux": "tested",
+  "hidrawUaccess": "candidate",
+  "wine": "tested",
+  "starCitizen": "tested"
+}
+```
+
+Native axis/button activity, Wine presentation, Star Citizen visibility, and
+usable in-game input were confirmed. HIDRAW `uaccess` remains `candidate`
+because the functional game result does not independently prove that the
+scoped HIDRAW rule was the necessary causal mechanism.
+
+A newly generated local manifest still starts as `unverified`. Local defaults
+are intentionally conservative and are not automatically copied from the
+bundled manifest. Read the
+[X-56 functional validation](research/x56-functional-validation.md) before
+changing local support fields.
+
 ## Create a manifest
 
 `manifest create` uses `jq` for safe JSON construction. Preview the generated
