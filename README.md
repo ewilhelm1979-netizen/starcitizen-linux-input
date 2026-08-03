@@ -136,7 +136,9 @@ Roles, comma-separated: throttle,stick
 ```
 
 If the stick row appears first, use `stick,throttle`. Confirm the mapping in the
-preview before saving. The local support states remain `unverified`.
+preview before saving. A newly generated local manifest still starts with
+`unverified` support fields; this does not downgrade the separately reviewed
+and tested bundled `saitek-x56-rhino` manifest.
 
 The GUI saves private local manifests under:
 
@@ -147,10 +149,43 @@ ${XDG_DATA_HOME:-$HOME/.local/share}/starcitizen-linux-input/manifests/
 Read [Device manifests](docs/device-manifests.md) for validation and storage
 rules.
 
+## X-56 validated support
+
+On 2026-08-03, the human maintainer completed a live X-56 test on NixOS 26.05
+with nix-citizen and an Astral Wine/Proton runtime. Native Linux detected the
+stick and throttle separately with working axes and buttons. Star Citizen
+listed both devices as enabled and connected, and both supplied usable in-game
+input after loading the standard CIG X-56 profile.
+
+The standard CIG profile proved functionality but its default mapping was not
+optimal and still needs user-specific binding adjustments. Native Linux, Wine,
+and Star Citizen are therefore `tested` for the bundled X-56 manifest. HIDRAW
+`uaccess` remains `candidate` because successful gameplay does not by itself
+prove that the scoped HIDRAW policy was the necessary causal mechanism.
+
+See the [X-56 functional validation](docs/research/x56-functional-validation.md)
+and [support matrix](docs/support-matrix.md) for the exact evidence and
+limitations.
+
 ## Use a local manifest on NixOS
 
 The recommended modular setup uses **three different files with three different
 jobs**. Do not paste all blocks into `configuration.nix`.
+
+For the tested bundled X-56 manifest, the shortest configuration is:
+
+```nix
+hardware.starCitizenInput = {
+  enable = true;
+  knownManifests = [ "saitek-x56-rhino" ];
+  manifestFiles = [ ];
+  diagnosticTools = true;
+  gui = true;
+};
+```
+
+Use the local-manifest workflow below when you intentionally want a reviewed
+custom copy. Do not enable both sources for the same VID:PID pairs.
 
 ### File 1: `/etc/nixos/flake.nix`
 
@@ -292,8 +327,10 @@ sc-input udev render --known-manifest 3dconnexion-spacemouse-wireless-usb
 sc-input udev render --known-manifest saitek-x56-rhino
 ```
 
-The SpaceMouse rule is backed by a tested reference. The bundled X-56 output is
-a research candidate only and does not claim to resolve the X-56 issue.
+The SpaceMouse rule is backed by a tested reference. The bundled X-56 manifest
+is tested for native Linux, Wine, and Star Citizen in the documented maintainer
+environment. Its scoped HIDRAW `uaccess` status remains `candidate` until that
+mechanism is independently verified rather than inferred from gameplay.
 
 ## Diagnostic stages
 
@@ -338,15 +375,18 @@ Citizen Input Manager is maintained independently; no affiliation or endorsement
   nix-citizen, Astral Wine 11.12, Star Citizen LIVE 4.9.188.23497, six axes,
   flight and shared ground-vehicle movement, no drift or cross-axis input.
   Bluetooth and Universal Receiver operation remain unverified.
-- X-56 stick `0738:2221` and throttle `0738:a221` remain a research case.
-  Linux and `joy.cpl` visibility were reported, but in-game input remained
-  unreliable and Ghost controllers were observed.
+- X-56 stick `0738:2221` and throttle `0738:a221` are tested in the documented
+  maintainer environment for native Linux detection and input, Wine
+  presentation, Star Citizen visibility, and usable in-game axes and controls.
+  The standard CIG profile requires binding adjustments and the HIDRAW
+  `uaccess` mechanism remains a separately tracked candidate.
 - The tool does not change Wine registry settings, Wine runners, or Star
   Citizen bindings and does not distribute controller profiles.
 
 Read [Support matrix](docs/support-matrix.md), the
-[SpaceMouse case study](docs/research/spacemouse-case-study.md), and the
-[X-56 research summary](docs/research/nix-citizen-issue-108.md).
+[SpaceMouse case study](docs/research/spacemouse-case-study.md), the
+[X-56 functional validation](docs/research/x56-functional-validation.md), and
+the [X-56 issue research summary](docs/research/nix-citizen-issue-108.md).
 
 ## Documentation
 
@@ -361,6 +401,7 @@ Read [Support matrix](docs/support-matrix.md), the
 - [Wine diagnostics](docs/wine-diagnostics.md)
 - [Star Citizen diagnostics](docs/star-citizen-diagnostics.md)
 - [Support matrix](docs/support-matrix.md)
+- [X-56 functional validation](docs/research/x56-functional-validation.md)
 
 ## Development
 
