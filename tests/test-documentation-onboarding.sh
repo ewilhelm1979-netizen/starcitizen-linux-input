@@ -142,13 +142,14 @@ for symptom in \
     "troubleshooting topic is missing: $symptom"
 done
 
-require_text docs/support-matrix.md '| X-56 stick `0738:2221` | tested | candidate | tested | tested |' \
+markdown_tick='`'
+require_text docs/support-matrix.md "| X-56 stick ${markdown_tick}0738:2221${markdown_tick} | tested | candidate | tested | tested |" \
   'X-56 stick support matrix state is inconsistent'
-require_text docs/support-matrix.md '| X-56 throttle `0738:a221` | tested | candidate | tested | tested |' \
+require_text docs/support-matrix.md "| X-56 throttle ${markdown_tick}0738:a221${markdown_tick} | tested | candidate | tested | tested |" \
   'X-56 throttle support matrix state is inconsistent'
 require_text docs/research/x56-functional-validation.md 'The standard CIG profile was sufficient to prove input' \
   'X-56 validation profile limitation is missing'
-require_text docs/research/x56-functional-validation.md 'HIDRAW `uaccess` | `candidate`' \
+require_text docs/research/x56-functional-validation.md "HIDRAW ${markdown_tick}uaccess${markdown_tick} | ${markdown_tick}candidate${markdown_tick}" \
   'X-56 validation HIDRAW boundary is missing'
 
 require_text README.md '## AI-assisted development' \
