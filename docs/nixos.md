@@ -54,16 +54,32 @@ The X-56 manifest remains a research candidate. Enabling its rule means only
 that the exact HIDRAW policy was selected for a hardware test; it does not mark
 Star Citizen input as fixed.
 
-## Choose the integration path
+## Three files, three different jobs
 
-### Recommended: NixOS Flake module
+For the recommended modular NixOS layout, the integration is split across
+three files:
 
-Add the project as a Flake input and import its NixOS module in the system
-module list:
+| File | Purpose |
+| --- | --- |
+| `/etc/nixos/flake.nix` | Declares the GitHub input and imports the NixOS module |
+| `/etc/nixos/hosts/nixos/configuration.nix` | Configures `hardware.starCitizenInput` |
+| `/etc/nixos/hosts/nixos/manifests/saitek-x56-rhino-local.json` | Stores the reviewed local manifest referenced by the host configuration |
+
+Do not paste the Flake input, the `modules = [ ... ];` list, and the hardware
+options into the same file.
+
+## File 1: `/etc/nixos/flake.nix`
+
+### Add the input inside `inputs = { ... };`
+
+Open `/etc/nixos/flake.nix`. Find the existing top-level `inputs = { ... };`
+attribute set and add `star-citizen-input` inside it:
 
 ```nix
+# /etc/nixos/flake.nix
 {
   inputs = {
+    # Keep all existing inputs.
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 
     star-citizen-input = {
@@ -72,91 +88,114 @@ module list:
     };
   };
 
-  outputs = { nixpkgs, star-citizen-input, ... }@inputs: {
+  # The outputs block remains below in the same file.
+}
+```
+
+The `star-citizen-input = { ... };` block belongs in `flake.nix`, not in
+`configuration.nix`.
+
+### Import the module in the same `flake.nix`
+
+Still in `/etc/nixos/flake.nix`, find the existing
+`nixosConfigurations.nixos = nixpkgs.lib.nixosSystem { ... };` block. Add the
+module to that block's existing `modules = [ ... ];` list:
+
+```nix
+# /etc/nixos/flake.nix
+{
+  outputs = { self, nixpkgs, ... }@inputs: {
     nixosConfigurations.nixos = nixpkgs.lib.nixosSystem {
       system = "x86_64-linux";
+
+      # Keep your existing specialArgs. They may contain hostname, username,
+      # pkgsUnstable, or other project-specific values.
       specialArgs = { inherit inputs; };
+
       modules = [
-        star-citizen-input.nixosModules.default
-        ./configuration.nix
+        # Add this line exactly once.
+        inputs.star-citizen-input.nixosModules.default
+
+        # Keep the existing host configuration import.
+        ./hosts/nixos/configuration.nix
       ];
     };
   };
 }
 ```
 
-The `hardware.starCitizenInput` block belongs at the top level of the NixOS
-system configuration, on the same level as `services`, `networking`,
-`environment`, and other `hardware.*` options:
+Do not create another `modules = [ ... ];` list in
+`/etc/nixos/hosts/nixos/configuration.nix`.
 
-```nix
-{ config, pkgs, ... }:
+An advanced alternative is to import the module through the host
+`configuration.nix` `imports` list when that file already receives `inputs`
+through `specialArgs`. Choose one import location. Importing the same module in both places is
+unnecessary. The examples in this guide use the clearer `flake.nix` module
+list.
 
-{
-  hardware.starCitizenInput = {
-    enable = true;
-    knownManifests = [ ];
-    manifestFiles = [
-      ./manifests/saitek-x56-rhino-local.json
-    ];
-    diagnosticTools = true;
-    gui = true;
-  };
-}
-```
+## File 2: `/etc/nixos/hosts/nixos/configuration.nix`
 
-Do not place this block inside `environment.systemPackages`, `services`, or a
-Home Manager user configuration.
+This file configures the module that `flake.nix` already imported. It does not
+declare the GitHub input and does not define a `modules` list.
 
 ### Existing `hardware = { ... };` block
 
 When `configuration.nix` already groups hardware options, add only
-`starCitizenInput` inside that attribute set:
+`starCitizenInput` inside that existing attribute set:
 
 ```nix
-hardware = {
-  enableRedistributableFirmware = true;
+# /etc/nixos/hosts/nixos/configuration.nix
+{
+  # Existing imports and system configuration continue above.
 
-  starCitizenInput = {
-    enable = true;
-    knownManifests = [ ];
-    manifestFiles = [
-      ./manifests/saitek-x56-rhino-local.json
-    ];
-    diagnosticTools = true;
-    gui = true;
+  hardware = {
+    enableRedistributableFirmware = true;
+
+    starCitizenInput = {
+      enable = true;
+      knownManifests = [ ];
+      manifestFiles = [
+        ./manifests/saitek-x56-rhino-local.json
+      ];
+      diagnosticTools = true;
+      gui = true;
+    };
+
+    # Existing Bluetooth, graphics, NVIDIA, xpadneo, xone, controller,
+    # scanner, and other hardware options continue here.
   };
-
-  # Existing Bluetooth, graphics, NVIDIA, controller, or scanner options.
-};
+}
 ```
 
 Inside `hardware = { ... };`, do not write another
 `hardware.starCitizenInput = { ... };` block.
 
-### Simple `/etc/nixos` layout
+### Configuration without a grouped `hardware` block
 
-A small Flake-based setup can keep the familiar `configuration.nix` layout:
+When the file does not already contain `hardware = { ... };`, use this
+top-level equivalent:
 
-```text
-/etc/nixos/
-├── flake.nix
-├── configuration.nix
-└── manifests/
-    └── saitek-x56-rhino-local.json
+```nix
+# /etc/nixos/hosts/nixos/configuration.nix
+hardware.starCitizenInput = {
+  enable = true;
+  knownManifests = [ ];
+  manifestFiles = [
+    ./manifests/saitek-x56-rhino-local.json
+  ];
+  diagnosticTools = true;
+  gui = true;
+};
 ```
 
-In that layout:
+Do not place this block inside `services`, `environment.systemPackages`, or a
+Home Manager user configuration.
 
-- `/etc/nixos/flake.nix` declares the input and imports
-  `star-citizen-input.nixosModules.default`;
-- `/etc/nixos/configuration.nix` contains the top-level module options;
-- `./manifests/saitek-x56-rhino-local.json` resolves to
-  `/etc/nixos/manifests/saitek-x56-rhino-local.json`.
+## File 3: the local manifest JSON
 
 ### Modular host layout
 
-A larger configuration may keep host-specific files below `hosts/`:
+The examples above use this layout:
 
 ```text
 /etc/nixos/
@@ -170,37 +209,8 @@ A larger configuration may keep host-specific files below `hosts/`:
 └── modules/
 ```
 
-The Flake may import the external module and host configuration together:
-
-```nix
-modules = [
-  inputs.star-citizen-input.nixosModules.default
-  ./hosts/nixos/configuration.nix
-];
-```
-
-Alternatively, when `inputs` is passed through `specialArgs`, the host
-configuration may import the module itself:
-
-```nix
-{
-  inputs,
-  ...
-}:
-
-{
-  imports = [
-    ./hardware-configuration.nix
-    inputs.star-citizen-input.nixosModules.default
-  ];
-}
-```
-
-Choose one import location. Importing the same module in both places is
-unnecessary.
-
-In the modular layout, this path in
-`/etc/nixos/hosts/nixos/configuration.nix`:
+Because the relative path appears in
+`/etc/nixos/hosts/nixos/configuration.nix`, this entry:
 
 ```nix
 manifestFiles = [
@@ -208,7 +218,7 @@ manifestFiles = [
 ];
 ```
 
-resolves to:
+resolves to exactly:
 
 ```text
 /etc/nixos/hosts/nixos/manifests/saitek-x56-rhino-local.json
@@ -219,13 +229,32 @@ For a Git-backed Flake, the manifest must also be tracked by Git before it is
 included in the Flake source. A local path Flake only requires the file to
 exist beneath the Flake root.
 
-### Traditional `configuration.nix` without an existing Flake
+### Simple `/etc/nixos` layout
+
+A smaller setup may instead use:
+
+```text
+/etc/nixos/
+├── flake.nix
+├── configuration.nix
+└── manifests/
+    └── saitek-x56-rhino-local.json
+```
+
+In that layout, `./manifests/saitek-x56-rhino-local.json` written in
+`/etc/nixos/configuration.nix` resolves to:
+
+```text
+/etc/nixos/manifests/saitek-x56-rhino-local.json
+```
+
+## Traditional `configuration.nix` without an existing Flake
 
 A direct non-Flake module import is not currently part of the tested public
 interface. Keep the existing `/etc/nixos/configuration.nix` and add a minimal
 `/etc/nixos/flake.nix` wrapper using the examples above.
 
-### Home Manager
+## Home Manager
 
 Home Manager can install the CLI and GUI for one user, but it cannot apply the
 system-level HIDRAW Udev rules. The NixOS module must still be imported and
@@ -282,18 +311,18 @@ nix run github:ewilhelm1979-netizen/starcitizen-linux-input -- \
   udev render --manifest "$manifest"
 ```
 
-For the simple `/etc/nixos` layout:
-
-```console
-sudo mkdir -p /etc/nixos/manifests
-sudo cp "$manifest" /etc/nixos/manifests/
-```
-
 For the modular host layout:
 
 ```console
 sudo mkdir -p /etc/nixos/hosts/nixos/manifests
 sudo cp "$manifest" /etc/nixos/hosts/nixos/manifests/
+```
+
+For the simple `/etc/nixos` layout:
+
+```console
+sudo mkdir -p /etc/nixos/manifests
+sudo cp "$manifest" /etc/nixos/manifests/
 ```
 
 Do not also select the bundled `saitek-x56-rhino` entry in `knownManifests`
@@ -320,12 +349,11 @@ Use the installed CLI to verify discovery and current effective access:
 sc-input discover --json
 
 sc-input verify \
-  --manifest "$(realpath /etc/nixos/manifests/saitek-x56-rhino-local.json)" \
+  --manifest "$(realpath /etc/nixos/hosts/nixos/manifests/saitek-x56-rhino-local.json)" \
   --json
 ```
 
-For the modular layout, use the manifest below
-`/etc/nixos/hosts/nixos/manifests/` instead.
+For the simple layout, use the manifest below `/etc/nixos/manifests/` instead.
 
 A successful result confirms only native detection and access. It does not
 confirm Wine visibility, Star Citizen visibility, bindings, or gameplay.
@@ -334,8 +362,9 @@ confirm Wine visibility, Star Citizen visibility, bindings, or gameplay.
 
 | Error or symptom | Likely cause | Check |
 | --- | --- | --- |
-| `hardware.starCitizenInput` does not exist | The NixOS module was not imported | Import `nixosModules.default` exactly once |
-| Manifest file not found during evaluation | The relative path points to the wrong directory | Resolve it relative to the containing `.nix` file |
+| `hardware.starCitizenInput` does not exist | The NixOS module was not imported | Add `inputs.star-citizen-input.nixosModules.default` to the `nixosSystem` `modules` list in `/etc/nixos/flake.nix` |
+| The Flake input is unknown | The input was added to the wrong file or outside `inputs` | Add `star-citizen-input = { ... };` inside the top-level `inputs = { ... };` block in `/etc/nixos/flake.nix` |
+| Manifest file not found during evaluation | The relative path points to the wrong directory | Resolve it relative to the containing `configuration.nix` file |
 | Manifest exists locally but not in a Git Flake source | The JSON is untracked | Add the manifest to Git before rebuilding |
 | Duplicate VID:PID or duplicate manifest assertion | Local and bundled X-56 manifests are enabled together | Leave `knownManifests = [ ];` for the local X-56 file |
 | GUI command is missing | The GUI package is not installed | Set `gui = true` or install it through Home Manager |
