@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="520" viewBox="0 0 1100 520" role="img" aria-labelledby="title desc">
+<title id="title">Citizen Input Manager physical device selection</title>
+<desc id="desc">Sanitized vector capture showing SpaceMouse and Saitek X-56 throttle and stick entries. Ephemeral runtime IDs and unrelated device inventory are covered with opaque redaction bars.</desc>
+<rect width="1100" height="520" fill="#ffffff"/>
+<rect x="2" y="2" width="1096" height="516" rx="22" fill="#fbfbfc" stroke="#d8d9dd" stroke-width="2"/>
+<text x="550" y="55" text-anchor="middle" font-family="sans-serif" font-size="24" font-weight="700" fill="#34343b">Citizen Input Manager — physical devices</text>
+<text x="28" y="104" font-family="sans-serif" font-size="16" fill="#34343b">Wählen Sie Objekte aus der nachstehenden Liste.</text>
+<rect x="28" y="120" width="1044" height="280" fill="#ffffff"/>
+<g font-family="sans-serif" font-size="14" fill="#a1a2a7">
+<text x="42" y="145">Runtime ID</text><text x="292" y="145">VID:PID</text><text x="445" y="145">Product</text><text x="828" y="145">Nodes</text>
+</g>
+<g font-family="sans-serif" font-size="16" fill="#34343b">
+<rect x="28" y="154" width="1044" height="34" fill="#ffffff"/>
+<rect x="42" y="162" width="175" height="18" rx="3" fill="#202226"/>
+<text x="292" y="177">256f:c63a</text><text x="445" y="177">SpaceMouse Wireless BT</text><text x="828" y="177">hidraw=1, event=1, js=1</text>
+<rect x="28" y="222" width="1044" height="34" fill="#c9def7"/>
+<rect x="42" y="230" width="175" height="18" rx="3" fill="#202226"/>
+<text x="292" y="245">0738:a221</text><text x="445" y="245">Saitek Pro Flight X-56 Rhino Throttle</text><text x="828" y="245">hidraw=2, event=1, js=1</text>
+<rect x="28" y="324" width="1044" height="34" fill="#c9def7" stroke="#4c9cf3" stroke-width="2"/>
+<rect x="42" y="332" width="175" height="18" rx="3" fill="#202226"/>
+<text x="292" y="347">0738:2221</text><text x="445" y="347">Saitek Pro Flight X-56 Rhino Stick</text><text x="828" y="347">hidraw=2, event=1, js=1</text>
+</g>
+<rect x="28" y="188" width="1044" height="34" fill="#202226"/>
+<rect x="28" y="256" width="1044" height="34" fill="#202226"/>
+<rect x="28" y="290" width="1044" height="34" fill="#202226"/>
+<rect x="28" y="358" width="1044" height="34" fill="#202226"/>
+<text x="550" y="210" text-anchor="middle" font-family="sans-serif" font-size="14" fill="#dfe1e5">unrelated local device inventory redacted</text>
+<text x="550" y="278" text-anchor="middle" font-family="sans-serif" font-size="14" fill="#dfe1e5">unrelated local device inventory redacted</text>
+<text x="550" y="312" text-anchor="middle" font-family="sans-serif" font-size="14" fill="#dfe1e5">unrelated local device inventory redacted</text>
+<text x="550" y="380" text-anchor="middle" font-family="sans-serif" font-size="14" fill="#dfe1e5">unrelated local device inventory redacted</text>
+<rect x="28" y="430" width="500" height="58" rx="16" fill="#e5e5e7"/>
+<rect x="572" y="430" width="500" height="58" rx="16" fill="#e5e5e7"/>
+<text x="278" y="466" text-anchor="middle" font-family="sans-serif" font-size="17" font-weight="700" fill="#38383e">Abbrechen</text>
+<text x="822" y="466" text-anchor="middle" font-family="sans-serif" font-size="17" font-weight="700" fill="#38383e">OK</text>
+</svg>

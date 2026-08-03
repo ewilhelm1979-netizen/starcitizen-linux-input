@@ -87,6 +87,10 @@ Udev, trigger hardware, or change a device permission.
 nix run github:ewilhelm1979-netizen/starcitizen-linux-input#gui
 ```
 
+![Citizen Input Manager main menu with actions for discovery, device inspection, local manifest creation, diagnostics, and security information](docs/images/gui/citizen-input-manager-main-menu-sanitized.svg)
+
+*The main GUI offers discovery, inspection, grouped manifest creation, diagnostics, and security guidance.*
+
 The packaged GUI supplies the CLI, Zenity, and `dialog`. It can list and
 inspect devices, group multiple devices into a local manifest, preview the
 manifest and Udev rule, display a safe dry-run command, run native diagnosis,

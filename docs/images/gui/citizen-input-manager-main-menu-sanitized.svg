@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="650" height="620" viewBox="0 0 650 620" role="img" aria-labelledby="title desc">
+<title id="title">Citizen Input Manager main menu</title>
+<desc id="desc">Sanitized vector capture of the Citizen Input Manager menu with discovery, inspection, local manifest creation, diagnostics, security model, and exit actions.</desc>
+<rect width="650" height="620" fill="#ffffff"/>
+<rect x="2" y="2" width="646" height="616" rx="22" fill="#fbfbfc" stroke="#d8d9dd" stroke-width="2"/>
+<text x="325" y="60" text-anchor="middle" font-family="sans-serif" font-size="25" font-weight="700" fill="#34343b">Citizen Input Manager</text>
+<text x="28" y="112" font-family="sans-serif" font-size="16" fill="#34343b">Wählen Sie Objekte aus der nachstehenden Liste.</text>
+<rect x="28" y="130" width="594" height="365" fill="#ffffff"/>
+<text x="36" y="154" font-family="sans-serif" font-size="14" fill="#a1a2a7">Action</text>
+<rect x="28" y="166" width="594" height="34" fill="#c9def7"/>
+<g font-family="sans-serif" font-size="16" fill="#36373d">
+<text x="32" y="189">Discover physical devices</text>
+<text x="32" y="224">Inspect one device</text>
+<text x="32" y="259">Create local HOTAS manifest</text>
+<text x="32" y="294">Known manifests and diagnostics</text>
+<text x="32" y="329">Security model</text>
+<text x="32" y="364">Exit</text>
+</g>
+<rect x="28" y="526" width="280" height="58" rx="16" fill="#e5e5e7"/>
+<rect x="342" y="526" width="280" height="58" rx="16" fill="#e5e5e7"/>
+<text x="168" y="562" text-anchor="middle" font-family="sans-serif" font-size="17" font-weight="700" fill="#38383e">Abbrechen</text>
+<text x="482" y="562" text-anchor="middle" font-family="sans-serif" font-size="17" font-weight="700" fill="#38383e">OK</text>
+</svg>

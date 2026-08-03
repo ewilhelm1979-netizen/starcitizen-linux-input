@@ -12,6 +12,10 @@ The easiest launch path is:
 nix run github:ewilhelm1979-netizen/starcitizen-linux-input#gui
 ```
 
+![Citizen Input Manager main menu with actions for discovery, device inspection, local manifest creation, diagnostics, and security information](images/gui/citizen-input-manager-main-menu-sanitized.svg)
+
+*Citizen Input Manager main menu. Start with physical-device discovery or choose the local HOTAS manifest workflow.*
+
 This packaged GUI requires only:
 
 - Linux with Nix and Flakes enabled;
@@ -76,6 +80,10 @@ Hold **Ctrl** while clicking non-adjacent rows. A focus outline alone does not
 mean that a second row is selected; both selected rows should be visibly
 highlighted.
 
+![Sanitized physical-device selection showing the SpaceMouse and both Saitek X-56 components; runtime identifiers and unrelated device inventory are redacted](images/gui/citizen-input-manager-physical-devices-redacted.svg)
+
+*Selecting the X-56 throttle and stick together. Opaque bars cover ephemeral runtime IDs and unrelated local device inventory.*
+
 Create one grouped manifest unless the components are intentionally managed as
 independent controllers.
 
@@ -89,6 +97,10 @@ Roles, comma-separated: throttle,stick
 
 When the stick row appears first, use `stick,throttle`. The role order must
 match the selected row order.
+
+![Citizen Input Manager local manifest form with fields for a safe slug ID, display name, and ordered comma-separated roles](images/gui/citizen-input-manager-create-local-manifest.png)
+
+*The local manifest form. All support fields intentionally start as `unverified`.*
 
 Review the preview and confirm:
 
@@ -109,6 +121,15 @@ ${XDG_DATA_HOME:-$HOME/.local/share}/starcitizen-linux-input/manifests/
 The saved file is not automatically installed into NixOS. Validate it, preview
 the rule, and then follow the [Getting started guide](getting-started.md) or the
 [NixOS guide](nixos.md).
+
+## Screenshot privacy note
+
+The GUI captures in this guide are sanitized documentation assets derived from
+the supplied screenshots. No username, hostname, local path, password, token,
+device serial number, or Wine prefix is shown. Ephemeral runtime IDs and
+unrelated local device rows are covered. The public USB VID:PID values remain
+visible because they are part of the documented hardware-identification
+workflow.
 
 ## Safety boundary
 
