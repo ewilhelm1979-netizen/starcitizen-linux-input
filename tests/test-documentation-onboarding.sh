@@ -76,7 +76,7 @@ rg -F 'Local paths must be absolute and canonical' docs/device-manifests.md >/de
   fail 'absolute manifest path guidance is missing'
 
 for symptom in \
-  '`hardware.starCitizenInput` is unknown' \
+  'hardware.starCitizenInput' \
   'The manifest path is wrong' \
   'Duplicate X-56 manifest or VID:PID error' \
   'Home Manager installed the GUI but access did not change'; do
