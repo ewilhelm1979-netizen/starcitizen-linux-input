@@ -17,10 +17,10 @@ rg -F '](docs/getting-started.md)' README.md >/dev/null ||
   fail 'README getting-started link is missing'
 rg -F 'When used through Nix, the package supplies its runtime dependencies' README.md >/dev/null ||
   fail 'README packaged dependency guidance is missing'
-rg -F 'Home Manager may' README.md >/dev/null ||
-  fail 'README Home Manager introduction is missing'
-rg -F 'install the CLI or GUI, but it cannot install the system Udev rules by itself.' README.md >/dev/null ||
-  fail 'README Home Manager boundary is missing'
+rg -F 'Home Manager package installation' README.md >/dev/null ||
+  fail 'README Home Manager installation path is missing'
+rg -F 'System Udev rules' README.md >/dev/null ||
+  fail 'README Home Manager system-rule boundary is missing'
 rg -F '### File 1:' README.md >/dev/null ||
   fail 'README flake file heading is missing'
 rg -F '### File 2:' README.md >/dev/null ||
@@ -80,7 +80,7 @@ rg -F '## File 2:' docs/nixos.md >/dev/null ||
   fail 'NixOS host configuration section is missing'
 rg -F '## File 3:' docs/nixos.md >/dev/null ||
   fail 'NixOS manifest section is missing'
-rg -F '### Existing `hardware = { ... };` block' docs/nixos.md >/dev/null ||
+rg -F 'Existing `hardware = { ... };` block' docs/nixos.md >/dev/null ||
   fail 'nested hardware example is missing'
 rg -F '### Modular host layout' docs/nixos.md >/dev/null ||
   fail 'modular host layout is missing'
