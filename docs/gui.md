@@ -12,7 +12,7 @@ The easiest launch path is:
 nix run github:ewilhelm1979-netizen/starcitizen-linux-input#gui
 ```
 
-![Citizen Input Manager main menu with actions for discovery, device inspection, local manifest creation, diagnostics, and security information](images/gui/citizen-input-manager-main-menu.png)
+![Citizen Input Manager main menu with actions for discovery, device inspection, local manifest creation, diagnostics, and security information](images/gui/citizen-input-manager-main-menu-sanitized.svg)
 
 *Citizen Input Manager main menu. Start with physical-device discovery or choose the local HOTAS manifest workflow.*
 
@@ -80,7 +80,7 @@ Hold **Ctrl** while clicking non-adjacent rows. A focus outline alone does not
 mean that a second row is selected; both selected rows should be visibly
 highlighted.
 
-![Sanitized physical-device selection showing the SpaceMouse and both Saitek X-56 components; runtime identifiers and unrelated device inventory are redacted](images/gui/citizen-input-manager-physical-devices-redacted.png)
+![Sanitized physical-device selection showing the SpaceMouse and both Saitek X-56 components; runtime identifiers and unrelated device inventory are redacted](images/gui/citizen-input-manager-physical-devices-redacted.svg)
 
 *Selecting the X-56 throttle and stick together. Opaque bars cover ephemeral runtime IDs and unrelated local device inventory.*
 
@@ -124,10 +124,12 @@ the rule, and then follow the [Getting started guide](getting-started.md) or the
 
 ## Screenshot privacy note
 
-The screenshots in this guide are sanitized documentation assets. No username,
-hostname, local path, password, token, device serial number, or Wine prefix is
-shown. The public USB VID:PID values remain visible because they are part of the
-documented hardware-identification workflow.
+The GUI captures in this guide are sanitized documentation assets derived from
+the supplied screenshots. No username, hostname, local path, password, token,
+device serial number, or Wine prefix is shown. Ephemeral runtime IDs and
+unrelated local device rows are covered. The public USB VID:PID values remain
+visible because they are part of the documented hardware-identification
+workflow.
 
 ## Safety boundary
 
